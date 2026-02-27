@@ -12,15 +12,17 @@ until docker compose exec -T db pg_isready -U gmi -d gmi_qms &>/dev/null; do
 done
 echo "  PostgreSQL listo."
 
-echo "▶ Instalando dependencias Python (si hace falta)..."
+echo "▶ Cargando variables de entorno..."
 cd "$ROOT/src"
-pip install -r requirements.txt -q
+set -a && source .env.local && set +a
+
+echo "▶ Instalando dependencias Python (si hace falta)..."
+pip3 install -r requirements.txt -q
 
 echo "▶ Aplicando migraciones Alembic..."
-python -m alembic upgrade head
+python3 -m alembic upgrade head
 
 echo "▶ Arrancando backend FastAPI (puerto 8000)..."
-set -a && source .env.local && set +a
 python3 -m uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!
 echo "  Backend PID: $BACKEND_PID"
@@ -29,7 +31,7 @@ echo "▶ Instalando dependencias frontend (si hace falta)..."
 cd "$ROOT/src/frontend"
 npm install --silent
 
-echo "▶ Arrancando frontend Vite (puerto 3000)..."
+echo "▶ Arrancando frontend Vite (puerto 3001)..."
 npm run dev &
 FRONTEND_PID=$!
 echo "  Frontend PID: $FRONTEND_PID"
@@ -37,7 +39,7 @@ echo "  Frontend PID: $FRONTEND_PID"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "  Backend API:  http://localhost:8000/api/docs"
-echo "  Frontend:     http://localhost:3000"
+echo "  Frontend:     http://localhost:3001"
 echo "  DEV_MODE:     autenticación SAML desactivada"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""

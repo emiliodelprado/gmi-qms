@@ -24,8 +24,9 @@ def get_url():
     user     = os.environ["DB_USER"]
     password = os.environ["DB_PASSWORD"]
     dbname   = os.environ["DB_NAME"]
-    host     = os.environ.get("DB_HOST", "34.14.73.41")
-    return f"postgresql+psycopg2://{user}:{password}@{host}/{dbname}"
+    host     = os.environ.get("DB_HOST", "localhost")
+    port     = os.environ.get("DB_PORT", "5432")
+    return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
 
 
 def run_migrations_offline() -> None:

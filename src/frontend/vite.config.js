@@ -14,7 +14,7 @@ export default defineConfig({
     'import.meta.env.BUILD_DATE':  JSON.stringify(new Date().toISOString()),
   },
   server: {
-    port: 3000,
+    port: 3001,
     proxy: {
       '/api':  'http://localhost:8000',
       '/auth': 'http://localhost:8000',
