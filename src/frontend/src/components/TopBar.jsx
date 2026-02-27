@@ -13,6 +13,7 @@ const PAGE_TITLES = {
   "/tal/emp/v-perf":  "Ficha Colaborador",
   "/tal/onb/v-chck":  "Checklist de Bienvenida",
   "/sop/doc/v-maes":  "Listado Maestro de Documentos",
+  "/sop/doc/v-proc":  "Mapa de Procesos",
   "/sop/inf/v-inv":   "Inventario IT",
   "/mej/nc/v-nc":     "Gestión de No Conformidades",
   "/mej/eti/v-canal": "Canal de Denuncias",

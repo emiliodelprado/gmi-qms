@@ -22,6 +22,7 @@ import EmpPerfil       from "./pages/tal/EmpPerfil.jsx";
 import OnbChecklist    from "./pages/tal/OnbChecklist.jsx";
 // SOP
 import DocMaestro      from "./pages/sop/DocMaestro.jsx";
+import DocProcesos     from "./pages/sop/DocProcesos.jsx";
 import InfInventario   from "./pages/sop/InfInventario.jsx";
 // MEJ
 import NcGestion       from "./pages/mej/NcGestion.jsx";
@@ -234,6 +235,7 @@ const Layout = ({ user }) => {
               <Route path="/tal/emp/v-perf"    element={<EmpPerfil />} />
               <Route path="/tal/onb/v-chck"    element={<OnbChecklist />} />
               <Route path="/sop/doc/v-maes"    element={<DocMaestro />} />
+              <Route path="/sop/doc/v-proc"    element={<DocProcesos />} />
               <Route path="/sop/inf/v-inv"     element={<InfInventario />} />
               <Route path="/mej/nc/v-nc"       element={<NcGestion />} />
               <Route path="/mej/eti/v-canal"   element={<EtiCanal />} />

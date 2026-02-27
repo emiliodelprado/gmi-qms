@@ -54,7 +54,8 @@ const NAV_MODULES = [
     id: "sop", code: "SOP", label: "Soporte", icon: "support",
     fns: [
       { id: "doc", code: "DOC", label: "Documentos", screens: [
-        { id: "v-maes", label: "Listado Maestro", path: "/sop/doc/v-maes" },
+        { id: "v-maes", label: "Listado Maestro",    path: "/sop/doc/v-maes" },
+        { id: "v-proc", label: "Mapa de Procesos",   path: "/sop/doc/v-proc" },
       ]},
       { id: "inf", code: "INF", label: "Infraestructura", screens: [
         { id: "v-inv", label: "Inventario IT",    path: "/sop/inf/v-inv" },
