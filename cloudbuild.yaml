@@ -1,0 +1,56 @@
+# =============================================================================
+#  GMI Quality Management System – Cloud Build CI/CD
+#  Triggered automatically on push to main branch.
+# =============================================================================
+
+substitutions:
+  _REGION: europe-west1
+  _IMAGE: europe-west1-docker.pkg.dev/$PROJECT_ID/gmi/qms-backend
+  _SERVICE: gmi-qms
+
+steps:
+  # ── 1. Build Docker image ──────────────────────────────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: build
+    args:
+      - build
+      - --platform=linux/amd64
+      - --tag=$_IMAGE:$COMMIT_SHA
+      - --tag=$_IMAGE:latest
+      - --build-arg=GIT_SHA=$COMMIT_SHA
+      - --cache-from=$_IMAGE:latest
+      - src/
+
+  # ── 2. Push to Artifact Registry ──────────────────────────────────────────
+  - name: gcr.io/cloud-builders/docker
+    id: push
+    waitFor: [build]
+    args:
+      - push
+      - --all-tags
+      - $_IMAGE
+
+  # ── 3. Deploy to Cloud Run ─────────────────────────────────────────────────
+  - name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    id: deploy
+    waitFor: [push]
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud run deploy $_SERVICE \
+          --image=$_IMAGE:$COMMIT_SHA \
+          --region=$_REGION \
+          --platform=managed \
+          --allow-unauthenticated \
+          --quiet
+
+images:
+  - $_IMAGE:$COMMIT_SHA
+  - $_IMAGE:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_HIGHCPU_8
+
+timeout: 1200s

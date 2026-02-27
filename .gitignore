@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# Variables de entorno (NUNCA subir)
+.env
+.env.local
+credenciales.txt
+
+# Frontend build
+src/frontend/node_modules/
+src/frontend/dist/
+static/
+
+# IDE
+.DS_Store
+.idea/
+.vscode/
+
+# Docker
+*.log
