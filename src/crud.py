@@ -332,6 +332,12 @@ def get_role_permissions(db: Session) -> List[models.RolePermission]:
     ).all()
 
 
+def get_role_permissions_by_role(db: Session, role: str) -> List[models.RolePermission]:
+    return db.query(models.RolePermission).filter(
+        models.RolePermission.role == role
+    ).all()
+
+
 def save_role_permissions(
     db: Session, entries: List[schemas.RolePermissionEntry]
 ) -> List[models.RolePermission]:

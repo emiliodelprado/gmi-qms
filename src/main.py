@@ -97,6 +97,16 @@ def me(current_user: schemas.UserInfo = Depends(get_current_user)):
     return current_user
 
 
+@app.get("/auth/permissions")
+def my_permissions(
+    current_user = Depends(get_current_user),
+    db: Session  = Depends(get_db),
+):
+    """Returns the permission map {screen_id: permission} for the current user's active role."""
+    rows = crud.get_role_permissions_by_role(db, current_user.role)
+    return {"role": current_user.role, "permissions": {r.screen_id: r.permission for r in rows}}
+
+
 @app.get("/auth/dev-login/{role}")
 def dev_login(role: str):
     """DEV_MODE only: switch active dev user role via browser URL."""

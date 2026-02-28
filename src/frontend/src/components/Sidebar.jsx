@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useContext } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { COLORS, H, B, Icon } from "../constants.jsx";
+import { PermissionsContext } from "../contexts.jsx";
 
 // ─── Navigation tree ──────────────────────────────────────────────────────────
 const NAV_MODULES = [
@@ -167,8 +168,30 @@ export default function Sidebar({ user }) {
     return s;
   });
 
+  const perms = useContext(PermissionsContext);
+
+  // loading (null): show everything to avoid flicker; explicit "—" = deny
+  const allowed = (screenId) => {
+    if (perms === null) return true;
+    const p = perms[screenId];
+    return p === undefined || p === "R" || p === "R/W";
+  };
+
+  // First accessible screen path in a module (for mini-mode click)
+  const firstAllowedPath = (mod) => {
+    for (const fn of mod.fns) {
+      for (const sc of fn.screens) {
+        if (allowed(sc.id)) return sc.path;
+      }
+    }
+    return null;
+  };
+
   const isScreenActive  = (path) => location.pathname === path;
-  const visibleModules  = NAV_MODULES.filter(mod => !mod.adminOnly || user?.role === "admin");
+  const visibleModules  = NAV_MODULES.filter(mod => {
+    if (mod.adminOnly && user?.role !== "admin") return false;
+    return mod.fns.some(fn => fn.screens.some(sc => allowed(sc.id)));
+  });
   const visibleSystem   = SYSTEM_NAV.filter(it => !it.adminOnly || user?.role === "admin");
 
   return (
@@ -211,7 +234,7 @@ export default function Sidebar({ user }) {
             <div key={mod.id} style={{ marginBottom: 2 }}>
               {/* Level 1: Module */}
               <button
-                onClick={() => mini ? navigate(mod.fns[0].screens[0].path) : toggleMod(mod.id)}
+                onClick={() => mini ? navigate(firstAllowedPath(mod) ?? mod.fns[0].screens[0].path) : toggleMod(mod.id)}
                 title={mini ? mod.label : undefined}
                 style={{
                   width: "100%", display: "flex", alignItems: "center",
@@ -238,7 +261,7 @@ export default function Sidebar({ user }) {
               </button>
 
               {/* Level 2 & 3 — only when expanded and not mini */}
-              {!mini && modOpen && mod.fns.map(fn => {
+              {!mini && modOpen && mod.fns.filter(fn => fn.screens.some(sc => allowed(sc.id))).map(fn => {
                 const fnOpen = openFns.has(fn.id);
                 const fnActive = fn.screens.some(sc => isScreenActive(sc.path));
 
@@ -264,7 +287,7 @@ export default function Sidebar({ user }) {
                     </button>
 
                     {/* Level 3: Screens */}
-                    {fnOpen && fn.screens.map(sc => {
+                    {fnOpen && fn.screens.filter(sc => allowed(sc.id)).map(sc => {
                       const active = isScreenActive(sc.path);
                       return (
                         <button key={sc.id}

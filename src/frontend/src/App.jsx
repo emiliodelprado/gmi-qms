@@ -1,4 +1,4 @@
-import { useState, useEffect, createContext } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { COLORS, H, B, apiFetch, getInitials, ROLE_LABELS, Icon } from "./constants.jsx";
 
@@ -44,6 +44,8 @@ import AdmRoles           from "./pages/adm/AdmRoles.jsx";
 import AdmLog             from "./pages/adm/AdmLog.jsx";
 import AdmAuth            from "./pages/adm/AdmAuth.jsx";
 import AdmUI              from "./pages/adm/AdmUI.jsx";
+import Novedades          from "./pages/Novedades.jsx";
+import { PermissionsContext } from "./contexts.jsx";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 export const CompanyContext = createContext({ company: "GMS", brand: "EPUNTO", setCompany: () => {}, setBrand: () => {} });
@@ -60,6 +62,44 @@ function useAuth() {
   }, []);
   return { user, loading };
 }
+
+// ─── Permissions hook ─────────────────────────────────────────────────────────
+function canAccess(perms, screenId) {
+  if (perms === null) return false;           // loading: block routes
+  const p = perms[screenId];
+  return p === undefined || p === "R" || p === "R/W"; // undefined = no restriction
+}
+
+function usePermissions(user, company, brand) {
+  const [perms, setPerms] = useState(null);
+  useEffect(() => {
+    if (!user) { setPerms({}); return; }
+    apiFetch("/auth/permissions", {
+      headers: { "X-Tenant-Company": company, "X-Tenant-Brand": brand },
+    })
+      .then(r => r.ok ? r.json() : { permissions: {} })
+      .then(data => setPerms(data.permissions ?? {}))
+      .catch(() => setPerms({}));
+  }, [user?.email, user?.role, company, brand]);
+  return perms;
+}
+
+// ─── Access denied ────────────────────────────────────────────────────────────
+const NoAccess = () => (
+  <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "60vh", gap: 12 }}>
+    <svg width={44} height={44} viewBox="0 0 24 24" fill="none" stroke={COLORS.border} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </svg>
+    <div style={{ fontSize: 18, fontWeight: 800, color: COLORS.gray, fontFamily: H }}>Acceso restringido</div>
+    <div style={{ fontSize: 13, color: COLORS.grayLight, fontFamily: B }}>No tienes permiso para ver esta pantalla.</div>
+  </div>
+);
+
+// ─── Route guard ──────────────────────────────────────────────────────────────
+const GuardedRoute = ({ screenId, element }) => {
+  const perms = useContext(PermissionsContext);
+  return canAccess(perms, screenId) ? element : <NoAccess />;
+};
 
 // ─── Admin Users (keeping existing) ──────────────────────────────────────────
 const AdminUsers = () => {
@@ -202,84 +242,61 @@ const Profile = ({ user }) => {
   );
 };
 
-// ─── Changelog ────────────────────────────────────────────────────────────────
-const CHANGELOG = [
-  { version: "0.2.0", date: "2026-02-28", changes: ["Mapa de Procesos movido a EST › Contexto (v-proc) según arquitectura QMS", "Nueva pantalla TAL › Formación (v-for): gestión de acciones formativas con evidencias y evaluación de eficacia", "Nueva pantalla SOP › Proveedores (v-prov): homologación y evaluación anual de proveedores críticos", "Módulos EST, RSG, OPE, TAL, SOP, MEJ con 17 pantallas"] },
-  { version: "0.1.0", date: "2026-02-27", changes: ["Lanzamiento inicial del GMI Quality Management System", "Autenticación SSO via OneLogin SAML 2.0", "Panel de administración de usuarios con roles", "Sistema de novedades", "Módulos EST, RSG, OPE, TAL, SOP, MEJ con 14 pantallas"] },
-];
-const ReleaseNotes = () => (
-  <div>
-    <div style={{ marginBottom: 28 }}>
-      <h1 style={{ fontSize: 22, fontWeight: 800, color: COLORS.gray, fontFamily: H, margin: 0 }}>Novedades</h1>
-      <p style={{ color: COLORS.grayLight, marginTop: 4, fontSize: 13, fontFamily: B }}>Historial de versiones y cambios</p>
-    </div>
-    {CHANGELOG.map((r, i) => (
-      <div key={r.version} style={{ background: COLORS.white, border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 16 }}>
-        <div style={{ padding: "14px 24px", borderBottom: `1px solid ${COLORS.border}`, display: "flex", alignItems: "center", gap: 12, background: i === 0 ? "#FFF8F8" : COLORS.white }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: i === 0 ? COLORS.red : COLORS.gray, fontFamily: H }}>v{r.version}</div>
-          {i === 0 && <span style={{ fontSize: 10, fontWeight: 800, background: COLORS.red, color: "#fff", borderRadius: 4, padding: "2px 7px", fontFamily: H }}>ACTUAL</span>}
-          <div style={{ fontSize: 12, color: COLORS.grayLight, fontFamily: B, marginLeft: "auto" }}>{r.date}</div>
-        </div>
-        <ul style={{ margin: 0, padding: "14px 24px 16px 40px" }}>
-          {r.changes.map((c, j) => <li key={j} style={{ fontSize: 13, color: COLORS.gray, fontFamily: B, lineHeight: 1.6, marginBottom: 4 }}>{c}</li>)}
-        </ul>
-      </div>
-    ))}
-  </div>
-);
-
 // ─── Layout ───────────────────────────────────────────────────────────────────
 const Layout = ({ user }) => {
   const [company, setCompany] = useState("GMS");
   const [brand,   setBrand]   = useState("EPUNTO");
+  const perms = usePermissions(user, company, brand);
 
   return (
     <CompanyContext.Provider value={{ company, brand, setCompany, setBrand }}>
-      <div style={{ display: "flex", minHeight: "100vh" }}>
-        <Sidebar user={user} />
-        <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-          <TopBar user={user} company={company} brand={brand} setCompany={setCompany} setBrand={setBrand} />
-          <main style={{ flex: 1, padding: "28px 30px", overflow: "auto", background: COLORS.bg }}>
-            <Routes>
-              <Route path="/"                  element={<Navigate to="/home" replace />} />
-              <Route path="/home"              element={<HomeModules />} />
-              <Route path="/est/dash/v-exe"    element={<DashEjecutivo />} />
-              <Route path="/est/dash/v-obj"    element={<DashObjetivos />} />
-              <Route path="/est/cont/v-dafo"   element={<ContDafo />} />
-              <Route path="/est/cont/v-org"    element={<ContOrganigrama />} />
-              <Route path="/est/cont/v-proc"   element={<ContProcesos />} />
-              <Route path="/est/cont/v-part"   element={<ContPartes />} />
-              <Route path="/rsg/evar/v-calc"   element={<EvalCalculadora />} />
-              <Route path="/rsg/map/v-map9"    element={<MapISO9001 />} />
-              <Route path="/rsg/map/v-map27"   element={<MapISO27001 />} />
-              <Route path="/rsg/trat/v-plan"   element={<TratPlan />} />
-              <Route path="/ope/com/v-oft"     element={<ComOfertas />} />
-              <Route path="/ope/prj/v-ent"     element={<PrjEntregables />} />
-              <Route path="/tal/emp/v-perf"    element={<EmpPerfil />} />
-              <Route path="/tal/for/v-for"     element={<ForFormacion />} />
-              <Route path="/tal/onb/v-chck"    element={<OnbChecklist />} />
-              <Route path="/sop/doc/v-maes"    element={<DocMaestro />} />
-              <Route path="/sop/prov/v-prov"   element={<ProvHomologacion />} />
-              <Route path="/sop/act/v-dig"     element={<ActInventario />} />
-              <Route path="/sop/equ/v-equ"     element={<EquEquipamiento />} />
-              <Route path="/mej/aud/v-aud"    element={<AudPlanificacion />} />
-              <Route path="/mej/nc/v-nc"         element={<NcGestion />} />
-              <Route path="/mej/eti/v-canal"   element={<EtiCanal />} />
-              <Route path="/adm/org/v-estr"    element={<AdmEstructura />} />
-              <Route path="/adm/proc/v-edproc" element={<AdmEditorProcesos />} />
-              <Route path="/adm/acc/v-user"    element={<AdmUsers />} />
-              <Route path="/adm/acc/v-roles"   element={<AdmRoles />} />
-              <Route path="/adm/acc/v-log"     element={<AdmLog />} />
-              <Route path="/adm/sec/v-auth"    element={<AdmAuth />} />
-              <Route path="/adm/ui/v-ui"       element={<AdmUI />} />
-              <Route path="/admin/usuarios"    element={<AdminUsers />} />
-              <Route path="/perfil"            element={<Profile user={user} />} />
-              <Route path="/novedades"         element={<ReleaseNotes />} />
-            </Routes>
-          </main>
-          <AppFooter />
+      <PermissionsContext.Provider value={perms}>
+        <div style={{ display: "flex", minHeight: "100vh" }}>
+          <Sidebar user={user} />
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+            <TopBar user={user} company={company} brand={brand} setCompany={setCompany} setBrand={setBrand} />
+            <main style={{ flex: 1, padding: "28px 30px", overflow: "auto", background: COLORS.bg }}>
+              <Routes>
+                <Route path="/"                  element={<Navigate to="/home" replace />} />
+                <Route path="/home"              element={<HomeModules />} />
+                <Route path="/est/dash/v-exe"    element={<GuardedRoute screenId="v-exe"    element={<DashEjecutivo />} />} />
+                <Route path="/est/dash/v-obj"    element={<GuardedRoute screenId="v-obj"    element={<DashObjetivos />} />} />
+                <Route path="/est/cont/v-dafo"   element={<GuardedRoute screenId="v-dafo"   element={<ContDafo />} />} />
+                <Route path="/est/cont/v-org"    element={<GuardedRoute screenId="v-org"    element={<ContOrganigrama />} />} />
+                <Route path="/est/cont/v-proc"   element={<GuardedRoute screenId="v-proc"   element={<ContProcesos />} />} />
+                <Route path="/est/cont/v-part"   element={<GuardedRoute screenId="v-part"   element={<ContPartes />} />} />
+                <Route path="/rsg/evar/v-calc"   element={<GuardedRoute screenId="v-calc"   element={<EvalCalculadora />} />} />
+                <Route path="/rsg/map/v-map9"    element={<GuardedRoute screenId="v-map9"   element={<MapISO9001 />} />} />
+                <Route path="/rsg/map/v-map27"   element={<GuardedRoute screenId="v-map27"  element={<MapISO27001 />} />} />
+                <Route path="/rsg/trat/v-plan"   element={<GuardedRoute screenId="v-plan"   element={<TratPlan />} />} />
+                <Route path="/ope/com/v-oft"     element={<GuardedRoute screenId="v-oft"    element={<ComOfertas />} />} />
+                <Route path="/ope/prj/v-ent"     element={<GuardedRoute screenId="v-ent"    element={<PrjEntregables />} />} />
+                <Route path="/tal/emp/v-perf"    element={<GuardedRoute screenId="v-perf"   element={<EmpPerfil />} />} />
+                <Route path="/tal/for/v-for"     element={<GuardedRoute screenId="v-for"    element={<ForFormacion />} />} />
+                <Route path="/tal/onb/v-chck"    element={<GuardedRoute screenId="v-chck"   element={<OnbChecklist />} />} />
+                <Route path="/sop/doc/v-maes"    element={<GuardedRoute screenId="v-maes"   element={<DocMaestro />} />} />
+                <Route path="/sop/prov/v-prov"   element={<GuardedRoute screenId="v-prov"   element={<ProvHomologacion />} />} />
+                <Route path="/sop/act/v-dig"     element={<GuardedRoute screenId="v-dig"    element={<ActInventario />} />} />
+                <Route path="/sop/equ/v-equ"     element={<GuardedRoute screenId="v-equ"    element={<EquEquipamiento />} />} />
+                <Route path="/mej/aud/v-aud"     element={<GuardedRoute screenId="v-aud"    element={<AudPlanificacion />} />} />
+                <Route path="/mej/nc/v-nc"       element={<GuardedRoute screenId="v-nc"     element={<NcGestion />} />} />
+                <Route path="/mej/eti/v-canal"   element={<GuardedRoute screenId="v-canal"  element={<EtiCanal />} />} />
+                <Route path="/adm/org/v-estr"    element={<GuardedRoute screenId="v-estr"   element={<AdmEstructura />} />} />
+                <Route path="/adm/proc/v-edproc" element={<GuardedRoute screenId="v-edproc" element={<AdmEditorProcesos />} />} />
+                <Route path="/adm/acc/v-user"    element={<GuardedRoute screenId="v-user"   element={<AdmUsers />} />} />
+                <Route path="/adm/acc/v-roles"   element={<GuardedRoute screenId="v-roles"  element={<AdmRoles />} />} />
+                <Route path="/adm/acc/v-log"     element={<GuardedRoute screenId="v-log"    element={<AdmLog />} />} />
+                <Route path="/adm/sec/v-auth"    element={<GuardedRoute screenId="v-auth"   element={<AdmAuth />} />} />
+                <Route path="/adm/ui/v-ui"       element={<GuardedRoute screenId="v-ui"     element={<AdmUI />} />} />
+                <Route path="/admin/usuarios"    element={<AdminUsers />} />
+                <Route path="/perfil"            element={<Profile user={user} />} />
+                <Route path="/novedades"         element={<Novedades />} />
+              </Routes>
+            </main>
+            <AppFooter />
+          </div>
         </div>
-      </div>
+      </PermissionsContext.Provider>
     </CompanyContext.Provider>
   );
 };

@@ -197,12 +197,13 @@ if gcloud beta run domain-mappings describe \
     --domain="$DOMAIN" --region="$REGION" --project="$PROJECT_ID" &>/dev/null; then
   warn "Domain mapping para '$DOMAIN' ya existe – omitido."
 else
+  # --async evita que gcloud espere a que el mapping esté listo (requiere DNS primero)
   gcloud beta run domain-mappings create \
     --service="$SERVICE" \
     --domain="$DOMAIN" \
     --region="$REGION" \
-    --project="$PROJECT_ID" --quiet
-  success "Domain mapping creado para $DOMAIN."
+    --project="$PROJECT_ID" --quiet --async 2>/dev/null || true
+  success "Domain mapping creado para $DOMAIN (pendiente de DNS)."
 fi
 
 # ─── 8. Registros DNS necesarios ──────────────────────────────────────────────
