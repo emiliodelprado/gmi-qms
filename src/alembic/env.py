@@ -26,6 +26,9 @@ def get_url():
     dbname   = os.environ["DB_NAME"]
     host     = os.environ.get("DB_HOST", "localhost")
     port     = os.environ.get("DB_PORT", "5432")
+    # Cloud SQL Unix socket: DB_HOST=/cloudsql/<project>:<region>:<instance>
+    if host.startswith("/"):
+        return f"postgresql+psycopg2://{user}:{password}@/{dbname}?host={host}"
     return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{dbname}"
 
 
