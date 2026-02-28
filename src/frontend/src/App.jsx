@@ -9,24 +9,41 @@ import AppFooter  from "./components/AppFooter.jsx";
 // EST
 import DashEjecutivo  from "./pages/est/DashEjecutivo.jsx";
 import DashObjetivos  from "./pages/est/DashObjetivos.jsx";
-import ContDafo       from "./pages/est/ContDafo.jsx";
-import ContPartes     from "./pages/est/ContPartes.jsx";
+import ContDafo        from "./pages/est/ContDafo.jsx";
+import ContOrganigrama from "./pages/est/ContOrganigrama.jsx";
+import ContPartes      from "./pages/est/ContPartes.jsx";
+import ContProcesos    from "./pages/est/ContProcesos.jsx";
 // RSG
 import EvalCalculadora from "./pages/rsg/EvalCalculadora.jsx";
 import TratPlan        from "./pages/rsg/TratPlan.jsx";
+import MapISO9001      from "./pages/rsg/MapISO9001.jsx";
+import MapISO27001     from "./pages/rsg/MapISO27001.jsx";
 // OPE
 import ComOfertas      from "./pages/ope/ComOfertas.jsx";
 import PrjEntregables  from "./pages/ope/PrjEntregables.jsx";
 // TAL
 import EmpPerfil       from "./pages/tal/EmpPerfil.jsx";
+import ForFormacion    from "./pages/tal/ForFormacion.jsx";
 import OnbChecklist    from "./pages/tal/OnbChecklist.jsx";
+// HOME
+import HomeModules       from "./pages/HomeModules.jsx";
 // SOP
-import DocMaestro      from "./pages/sop/DocMaestro.jsx";
-import DocProcesos     from "./pages/sop/DocProcesos.jsx";
-import InfInventario   from "./pages/sop/InfInventario.jsx";
+import DocMaestro        from "./pages/sop/DocMaestro.jsx";
+import ProvHomologacion  from "./pages/sop/ProvHomologacion.jsx";
+import ActInventario     from "./pages/sop/ActInventario.jsx";
+import EquEquipamiento  from "./pages/sop/EquEquipamiento.jsx";
 // MEJ
-import NcGestion       from "./pages/mej/NcGestion.jsx";
-import EtiCanal        from "./pages/mej/EtiCanal.jsx";
+import AudPlanificacion   from "./pages/mej/AudPlanificacion.jsx";
+import NcGestion          from "./pages/mej/NcGestion.jsx";
+import EtiCanal           from "./pages/mej/EtiCanal.jsx";
+// ADM
+import AdmEstructura      from "./pages/adm/AdmEstructura.jsx";
+import AdmEditorProcesos  from "./pages/adm/AdmEditorProcesos.jsx";
+import AdmUsers           from "./pages/adm/AdmUsers.jsx";
+import AdmRoles           from "./pages/adm/AdmRoles.jsx";
+import AdmLog             from "./pages/adm/AdmLog.jsx";
+import AdmAuth            from "./pages/adm/AdmAuth.jsx";
+import AdmUI              from "./pages/adm/AdmUI.jsx";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 export const CompanyContext = createContext({ company: "GMS", brand: "EPUNTO", setCompany: () => {}, setBrand: () => {} });
@@ -187,6 +204,7 @@ const Profile = ({ user }) => {
 
 // ─── Changelog ────────────────────────────────────────────────────────────────
 const CHANGELOG = [
+  { version: "0.2.0", date: "2026-02-28", changes: ["Mapa de Procesos movido a EST › Contexto (v-proc) según arquitectura QMS", "Nueva pantalla TAL › Formación (v-for): gestión de acciones formativas con evidencias y evaluación de eficacia", "Nueva pantalla SOP › Proveedores (v-prov): homologación y evaluación anual de proveedores críticos", "Módulos EST, RSG, OPE, TAL, SOP, MEJ con 17 pantallas"] },
   { version: "0.1.0", date: "2026-02-27", changes: ["Lanzamiento inicial del GMI Quality Management System", "Autenticación SSO via OneLogin SAML 2.0", "Panel de administración de usuarios con roles", "Sistema de novedades", "Módulos EST, RSG, OPE, TAL, SOP, MEJ con 14 pantallas"] },
 ];
 const ReleaseNotes = () => (
@@ -223,22 +241,37 @@ const Layout = ({ user }) => {
           <TopBar user={user} company={company} brand={brand} setCompany={setCompany} setBrand={setBrand} />
           <main style={{ flex: 1, padding: "28px 30px", overflow: "auto", background: COLORS.bg }}>
             <Routes>
-              <Route path="/"                  element={<Navigate to="/est/dash/v-exe" replace />} />
+              <Route path="/"                  element={<Navigate to="/home" replace />} />
+              <Route path="/home"              element={<HomeModules />} />
               <Route path="/est/dash/v-exe"    element={<DashEjecutivo />} />
               <Route path="/est/dash/v-obj"    element={<DashObjetivos />} />
               <Route path="/est/cont/v-dafo"   element={<ContDafo />} />
+              <Route path="/est/cont/v-org"    element={<ContOrganigrama />} />
+              <Route path="/est/cont/v-proc"   element={<ContProcesos />} />
               <Route path="/est/cont/v-part"   element={<ContPartes />} />
               <Route path="/rsg/evar/v-calc"   element={<EvalCalculadora />} />
+              <Route path="/rsg/map/v-map9"    element={<MapISO9001 />} />
+              <Route path="/rsg/map/v-map27"   element={<MapISO27001 />} />
               <Route path="/rsg/trat/v-plan"   element={<TratPlan />} />
               <Route path="/ope/com/v-oft"     element={<ComOfertas />} />
               <Route path="/ope/prj/v-ent"     element={<PrjEntregables />} />
               <Route path="/tal/emp/v-perf"    element={<EmpPerfil />} />
+              <Route path="/tal/for/v-for"     element={<ForFormacion />} />
               <Route path="/tal/onb/v-chck"    element={<OnbChecklist />} />
               <Route path="/sop/doc/v-maes"    element={<DocMaestro />} />
-              <Route path="/sop/doc/v-proc"    element={<DocProcesos />} />
-              <Route path="/sop/inf/v-inv"     element={<InfInventario />} />
-              <Route path="/mej/nc/v-nc"       element={<NcGestion />} />
+              <Route path="/sop/prov/v-prov"   element={<ProvHomologacion />} />
+              <Route path="/sop/act/v-dig"     element={<ActInventario />} />
+              <Route path="/sop/equ/v-equ"     element={<EquEquipamiento />} />
+              <Route path="/mej/aud/v-aud"    element={<AudPlanificacion />} />
+              <Route path="/mej/nc/v-nc"         element={<NcGestion />} />
               <Route path="/mej/eti/v-canal"   element={<EtiCanal />} />
+              <Route path="/adm/org/v-estr"    element={<AdmEstructura />} />
+              <Route path="/adm/proc/v-edproc" element={<AdmEditorProcesos />} />
+              <Route path="/adm/acc/v-user"    element={<AdmUsers />} />
+              <Route path="/adm/acc/v-roles"   element={<AdmRoles />} />
+              <Route path="/adm/acc/v-log"     element={<AdmLog />} />
+              <Route path="/adm/sec/v-auth"    element={<AdmAuth />} />
+              <Route path="/adm/ui/v-ui"       element={<AdmUI />} />
               <Route path="/admin/usuarios"    element={<AdminUsers />} />
               <Route path="/perfil"            element={<Profile user={user} />} />
               <Route path="/novedades"         element={<ReleaseNotes />} />

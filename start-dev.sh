@@ -29,6 +29,9 @@ echo "▶ Instalando dependencias Python (si hace falta)..."
 echo "▶ Aplicando migraciones Alembic..."
 "$VENV/bin/python" -m alembic upgrade head
 
+echo "▶ Seeding usuarios de desarrollo..."
+"$VENV/bin/python" seed_dev.py
+
 echo "▶ Arrancando backend FastAPI (puerto 8000)..."
 "$VENV/bin/python" -m uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!

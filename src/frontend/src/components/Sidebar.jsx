@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { COLORS, H, B, Icon, getInitials, ROLE_LABELS } from "../constants.jsx";
+import { COLORS, H, B, Icon } from "../constants.jsx";
 
 // ─── Navigation tree ──────────────────────────────────────────────────────────
 const NAV_MODULES = [
@@ -12,7 +12,9 @@ const NAV_MODULES = [
         { id: "v-obj", label: "Estado de Objetivos", path: "/est/dash/v-obj" },
       ]},
       { id: "cont", code: "CONT", label: "Contexto", screens: [
-        { id: "v-dafo", label: "Matriz DAFO/CAME",   path: "/est/cont/v-dafo" },
+        { id: "v-dafo", label: "Matriz DAFO/CAME",    path: "/est/cont/v-dafo" },
+        { id: "v-org",  label: "Organigrama",         path: "/est/cont/v-org"  },
+        { id: "v-proc", label: "Listado de Procesos", path: "/est/cont/v-proc" },
         { id: "v-part", label: "Partes Interesadas", path: "/est/cont/v-part" },
       ]},
     ],
@@ -22,6 +24,10 @@ const NAV_MODULES = [
     fns: [
       { id: "evar", code: "EVAR", label: "Evaluación", screens: [
         { id: "v-calc", label: "Calculadora de Riesgos", path: "/rsg/evar/v-calc" },
+      ]},
+      { id: "map", code: "MAP", label: "Mapa de Riesgos", screens: [
+        { id: "v-map9",  label: "Mapa ISO 9001",  path: "/rsg/map/v-map9"  },
+        { id: "v-map27", label: "Mapa ISO 27001", path: "/rsg/map/v-map27" },
       ]},
       { id: "trat", code: "TRAT", label: "Tratamiento", screens: [
         { id: "v-plan", label: "Plan de Acciones",       path: "/rsg/trat/v-plan" },
@@ -45,6 +51,9 @@ const NAV_MODULES = [
       { id: "emp", code: "EMP", label: "Empleados", screens: [
         { id: "v-perf", label: "Ficha Colaborador",   path: "/tal/emp/v-perf" },
       ]},
+      { id: "for", code: "FOR", label: "Formación", screens: [
+        { id: "v-for", label: "Gestión de Formación", path: "/tal/for/v-for" },
+      ]},
       { id: "onb", code: "ONB", label: "Onboarding", screens: [
         { id: "v-chck", label: "Checklist Bienvenida", path: "/tal/onb/v-chck" },
       ]},
@@ -55,21 +64,51 @@ const NAV_MODULES = [
     fns: [
       { id: "doc", code: "DOC", label: "Documentos", screens: [
         { id: "v-maes", label: "Listado Maestro",    path: "/sop/doc/v-maes" },
-        { id: "v-proc", label: "Mapa de Procesos",   path: "/sop/doc/v-proc" },
       ]},
-      { id: "inf", code: "INF", label: "Infraestructura", screens: [
-        { id: "v-inv", label: "Inventario IT",    path: "/sop/inf/v-inv" },
+      { id: "prov", code: "PROV", label: "Proveedores", screens: [
+        { id: "v-prov", label: "Homologación y Evaluación", path: "/sop/prov/v-prov" },
+      ]},
+      { id: "act", code: "ACT", label: "Activos de Información", screens: [
+        { id: "v-dig", label: "Inventario de Activos Digitales", path: "/sop/act/v-dig" },
+      ]},
+      { id: "equ", code: "EQU", label: "Equipamiento", screens: [
+        { id: "v-equ", label: "Gestión de Equipamiento", path: "/sop/equ/v-equ" },
       ]},
     ],
   },
   {
     id: "mej", code: "MEJ", label: "Mejora", icon: "improve",
     fns: [
+      { id: "aud", code: "AUD", label: "Auditorías", screens: [
+        { id: "v-aud", label: "Planificación de Auditorías", path: "/mej/aud/v-aud" },
+      ]},
       { id: "nc", code: "NC", label: "No Conformidades", screens: [
         { id: "v-nc",    label: "Gestión de NC",   path: "/mej/nc/v-nc" },
       ]},
       { id: "eti", code: "ETI", label: "Ética", screens: [
         { id: "v-canal", label: "Canal de Denuncias", path: "/mej/eti/v-canal" },
+      ]},
+    ],
+  },
+  {
+    id: "adm", code: "ADM", label: "Administración", icon: "lock",
+    fns: [
+      { id: "org-adm",  code: "ORG",  label: "Organización", screens: [
+        { id: "v-estr",   label: "Estructura Corporativa", path: "/adm/org/v-estr"   },
+      ]},
+      { id: "proc-adm", code: "PROC", label: "Procesos", screens: [
+        { id: "v-edproc", label: "Editor de Procesos",     path: "/adm/proc/v-edproc" },
+      ]},
+      { id: "acc",      code: "ACC",  label: "Control de Acceso", screens: [
+        { id: "v-user",   label: "Gestión de Usuarios",    path: "/adm/acc/v-user"   },
+        { id: "v-roles",  label: "Matriz de Roles",        path: "/adm/acc/v-roles"  },
+        { id: "v-log",    label: "Registro de Actividad",  path: "/adm/acc/v-log"    },
+      ]},
+      { id: "sec",      code: "SEC",  label: "Seguridad", screens: [
+        { id: "v-auth",   label: "Métodos de Autenticación", path: "/adm/sec/v-auth" },
+      ]},
+      { id: "ui",       code: "UI",   label: "Apariencia", screens: [
+        { id: "v-ui",     label: "Personalización UI",     path: "/adm/ui/v-ui"      },
       ]},
     ],
   },
@@ -128,8 +167,9 @@ export default function Sidebar({ user }) {
     return s;
   });
 
-  const isScreenActive = (path) => location.pathname === path;
-  const visibleSystem  = SYSTEM_NAV.filter(it => !it.adminOnly || user?.role === "admin");
+  const isScreenActive  = (path) => location.pathname === path;
+  const visibleModules  = NAV_MODULES.filter(mod => !mod.adminOnly || user?.role === "admin");
+  const visibleSystem   = SYSTEM_NAV.filter(it => !it.adminOnly || user?.role === "admin");
 
   return (
     <div style={{
@@ -138,9 +178,9 @@ export default function Sidebar({ user }) {
       flexShrink: 0, transition: "width 0.2s ease", overflow: "hidden",
     }}>
       {/* Header */}
-      <div style={{ padding: mini ? "14px 6px 12px" : "14px 12px 12px", borderBottom: "1px solid #2A2A2A" }}>
+      <div style={{ padding: mini ? "14px 6px 12px" : "14px 12px 12px", borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: mini ? 0 : 8, justifyContent: mini ? "center" : "flex-start" }}>
-          <div style={{ width: 38, flexShrink: 0 }}>
+          <div style={{ width: 38, flexShrink: 0, cursor: "pointer" }} onClick={() => navigate("/home")} title="Inicio">
             <img src="/logo.png" alt="GMI" style={{ width: "100%", display: "block", borderRadius: 3 }} />
           </div>
           {!mini && (
@@ -162,7 +202,7 @@ export default function Sidebar({ user }) {
 
       {/* Main nav */}
       <nav style={{ flex: 1, padding: mini ? "10px 4px" : "10px 8px", overflowY: "auto", overflowX: "hidden" }}>
-        {NAV_MODULES.map(mod => {
+        {visibleModules.map(mod => {
           const modOpen = openMods.has(mod.id);
           // Is any screen in this module active?
           const modActive = mod.fns.some(fn => fn.screens.some(sc => isScreenActive(sc.path)));
@@ -178,18 +218,18 @@ export default function Sidebar({ user }) {
                   gap: mini ? 0 : 8, padding: mini ? "9px 0" : "8px 10px",
                   justifyContent: mini ? "center" : "flex-start",
                   border: "none", cursor: "pointer", borderRadius: 6,
-                  background: modActive && mini ? COLORS.red : modActive ? "rgba(169,30,34,0.15)" : "transparent",
+                  background: modActive && mini ? "#424242" : modActive ? "rgba(66,66,66,0.45)" : "transparent",
                   color: "#fff", fontFamily: H, fontSize: 12, fontWeight: 700,
                   transition: "background 0.15s",
                 }}
-                onMouseEnter={e => { if (!modActive) e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
+                onMouseEnter={e => { if (!modActive) e.currentTarget.style.background = "rgba(255,255,255,0.12)"; }}
                 onMouseLeave={e => { if (!modActive) e.currentTarget.style.background = "transparent"; }}>
-                <Icon name={mod.icon} size={15} color={modActive ? COLORS.red : "#888"} />
+                <Icon name={mod.icon} size={15} color={modActive ? "#fff" : "rgba(255,255,255,0.55)"} />
                 {!mini && (
                   <>
-                    <span style={{ flex: 1, textAlign: "left", color: modActive ? "#fff" : "#AAA" }}>{mod.label}</span>
-                    <span style={{ fontSize: 9, color: "#555", fontFamily: "monospace", marginRight: 4 }}>{mod.code}</span>
-                    <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    <span style={{ flex: 1, textAlign: "left", color: "#fff" }}>{mod.label}</span>
+                    <span style={{ fontSize: 9, color: "rgba(255,255,255,0.4)", fontFamily: "monospace", marginRight: 4 }}>{mod.code}</span>
+                    <svg width={10} height={10} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
                       style={{ transform: modOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
                       <polyline points="9 18 15 12 9 6" />
                     </svg>
@@ -211,16 +251,16 @@ export default function Sidebar({ user }) {
                         width: "100%", display: "flex", alignItems: "center", gap: 6,
                         padding: "6px 8px", border: "none", cursor: "pointer", borderRadius: 5,
                         background: "transparent", fontFamily: H, fontSize: 11, fontWeight: 700,
-                        color: fnActive ? "#DDD" : "#666", transition: "background 0.15s",
+                        color: "#fff", transition: "background 0.15s",
                       }}
-                      onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.05)"}
+                      onMouseEnter={e => e.currentTarget.style.background = "rgba(255,255,255,0.1)"}
                       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                      <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                      <svg width={9} height={9} viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
                         style={{ transform: fnOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s", flexShrink: 0 }}>
                         <polyline points="9 18 15 12 9 6" />
                       </svg>
                       <span style={{ flex: 1, textAlign: "left" }}>{fn.label}</span>
-                      <span style={{ fontSize: 8, color: "#444", fontFamily: "monospace" }}>{fn.code}</span>
+                      <span style={{ fontSize: 8, color: "rgba(255,255,255,0.35)", fontFamily: "monospace" }}>{fn.code}</span>
                     </button>
 
                     {/* Level 3: Screens */}
@@ -232,13 +272,13 @@ export default function Sidebar({ user }) {
                           style={{
                             width: "100%", display: "flex", alignItems: "center", gap: 0,
                             padding: "5px 8px 5px 22px", border: "none", cursor: "pointer", borderRadius: 5,
-                            background: active ? COLORS.red : "transparent",
-                            color: active ? "#fff" : "#666", fontFamily: B, fontSize: 11, fontWeight: active ? 700 : 400,
+                            background: active ? "#424242" : "transparent",
+                            color: "#fff", fontFamily: B, fontSize: 11, fontWeight: active ? 700 : 400,
                             transition: "background 0.15s", textAlign: "left",
                           }}
-                          onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(255,255,255,0.06)"; }}
+                          onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(255,255,255,0.1)"; }}
                           onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
-                          <span style={{ width: 5, height: 5, borderRadius: "50%", background: active ? "#fff" : "#444", marginRight: 8, flexShrink: 0 }} />
+                          <span style={{ width: 5, height: 5, borderRadius: "50%", background: active ? "#fff" : "rgba(255,255,255,0.35)", marginRight: 8, flexShrink: 0 }} />
                           {sc.label}
                         </button>
                       );
@@ -251,7 +291,7 @@ export default function Sidebar({ user }) {
         })}
 
         {/* Divider */}
-        <div style={{ height: 1, background: "#2A2A2A", margin: "10px 4px" }} />
+        <div style={{ height: 1, background: "rgba(255,255,255,0.15)", margin: "10px 4px" }} />
 
         {/* System nav */}
         {visibleSystem.map(it => {
@@ -265,33 +305,19 @@ export default function Sidebar({ user }) {
                 gap: mini ? 0 : 8, padding: mini ? "9px 0" : "7px 10px",
                 justifyContent: mini ? "center" : "flex-start",
                 border: "none", cursor: "pointer", borderRadius: 6,
-                background: active ? COLORS.red : "transparent",
+                background: active ? "#424242" : "transparent",
                 color: "#fff", fontFamily: H, fontSize: 12, fontWeight: active ? 700 : 500,
                 transition: "background 0.15s", marginBottom: 2,
               }}
-              onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(255,255,255,0.07)"; }}
+              onMouseEnter={e => { if (!active) e.currentTarget.style.background = "rgba(255,255,255,0.12)"; }}
               onMouseLeave={e => { if (!active) e.currentTarget.style.background = "transparent"; }}>
-              <Icon name={it.icon} size={14} color={active ? "#fff" : "#666"} />
-              {!mini && <span style={{ color: active ? "#fff" : "#AAA" }}>{it.label}</span>}
+              <Icon name={it.icon} size={14} color={active ? "#fff" : "rgba(255,255,255,0.55)"} />
+              {!mini && <span style={{ color: "#fff" }}>{it.label}</span>}
             </button>
           );
         })}
       </nav>
 
-      {/* User footer */}
-      {!mini && (
-        <div style={{ padding: "10px 8px", borderTop: "1px solid #2A2A2A" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px" }}>
-            <div style={{ width: 28, height: 28, borderRadius: "50%", background: COLORS.red, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 800, color: "#fff", flexShrink: 0, fontFamily: H }}>
-              {getInitials(user?.name || user?.email || "U")}
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ color: "#CCC", fontSize: 11, fontWeight: 700, fontFamily: H, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.name || user?.email}</div>
-              <div style={{ color: "#555", fontSize: 10, fontFamily: B }}>{ROLE_LABELS[user?.role] || user?.role}</div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

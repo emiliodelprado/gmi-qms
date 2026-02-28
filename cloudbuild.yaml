@@ -4,9 +4,11 @@
 # =============================================================================
 
 substitutions:
-  _REGION: europe-west1
-  _IMAGE: europe-west1-docker.pkg.dev/$PROJECT_ID/gmi/qms-backend
-  _SERVICE: gmi-qms
+  _REGION:      europe-west1
+  _IMAGE:       europe-west1-docker.pkg.dev/$PROJECT_ID/gmi/qms-backend
+  _SERVICE:     gmi-qms
+  _DB_INSTANCE: gmi-qms-db
+  _DOMAIN:      qms.gmiberia.com
 
 steps:
   # ── 1. Build Docker image ──────────────────────────────────────────────────
@@ -43,6 +45,14 @@ steps:
           --region=$_REGION \
           --platform=managed \
           --allow-unauthenticated \
+          --memory=512Mi \
+          --cpu=1 \
+          --min-instances=0 \
+          --max-instances=10 \
+          --concurrency=80 \
+          --add-cloudsql-instances=$PROJECT_ID:$_REGION:$_DB_INSTANCE \
+          --set-env-vars="DB_USER=gmi,DB_NAME=gmi_qms,DB_HOST=/cloudsql/$PROJECT_ID:$_REGION:$_DB_INSTANCE,DEV_MODE=false,ONELOGIN_SP_ENTITY_ID=https://$_DOMAIN,ONELOGIN_SP_ACS_URL=https://$_DOMAIN/auth/saml/callback" \
+          --set-secrets="DB_PASSWORD=db-password:latest,SESSION_SECRET=session-secret:latest,ONELOGIN_IDP_ENTITY_ID=onelogin-idp-entity-id:latest,ONELOGIN_IDP_SSO_URL=onelogin-idp-sso-url:latest,ONELOGIN_IDP_CERT=onelogin-idp-cert:latest" \
           --quiet
 
 images:

@@ -305,7 +305,7 @@ const ProcessModal = ({ proc, onClose }) => {
 };
 
 // ─── Main component ────────────────────────────────────────────────────────────
-export default function DocProcesos() {
+export default function ContProcesos() {
   const [selected, setSelected] = useState(null);
 
   const allProcs = [
@@ -319,7 +319,7 @@ export default function DocProcesos() {
   return (
     <div>
       <PageHeader
-        title="Mapa de Procesos"
+        title="Listado de Procesos"
         subtitle="Sistema de Gestión de Calidad ISO 9001 · Haz clic en cualquier proceso para ver su ficha"
       />
 
@@ -353,9 +353,7 @@ export default function DocProcesos() {
       <div style={{ border: `1px solid ${COLORS.border}`, borderRadius: 10, overflow: "hidden", marginBottom: 14 }}>
         <LaneHeader label="Procesos Operativos (Cadena de Valor)" color="#00695C" bg="#E0F2F1" count={PROCESOS.operativos.length} />
         <div style={{ padding: "16px 20px", background: "#FAFFFE" }}>
-          {/* Customer brackets */}
           <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-            {/* Left: cliente input */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, marginRight: 12, flexShrink: 0 }}>
               <div style={{ width: 52, padding: "8px 4px", background: "#E0F2F1", border: "1px dashed #00695C", borderRadius: 6, textAlign: "center" }}>
                 <Icon name="profile" size={14} color="#00695C" />
@@ -364,7 +362,6 @@ export default function DocProcesos() {
               <Arrow />
             </div>
 
-            {/* Operational process nodes with arrows */}
             <div style={{ flex: 1, display: "flex", alignItems: "stretch", gap: 0 }}>
               {PROCESOS.operativos.map((proc, i) => (
                 <div key={proc.id} style={{ display: "flex", alignItems: "center", flex: 1, gap: 0 }}>
@@ -376,7 +373,6 @@ export default function DocProcesos() {
               ))}
             </div>
 
-            {/* Right: cliente output */}
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 3, marginLeft: 12, flexShrink: 0 }}>
               <Arrow />
               <div style={{ width: 52, padding: "8px 4px", background: "#E8F5E9", border: "1px dashed #2E7D32", borderRadius: 6, textAlign: "center" }}>

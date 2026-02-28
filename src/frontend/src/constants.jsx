@@ -8,7 +8,7 @@ export const COLORS = {
   bg:        "#F4F4F4",
   white:     "#FFFFFF",
   border:    "#E2E2E2",
-  sidebar:   "#1A1A1A",
+  sidebar:   "#ac2523",
 };
 
 export const H = "'Nunito Sans','Avenir Next','Avenir','Trebuchet MS',sans-serif";
