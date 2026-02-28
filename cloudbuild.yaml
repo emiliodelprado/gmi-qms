@@ -5,7 +5,6 @@
 
 substitutions:
   _REGION:      europe-west1
-  _IMAGE:       europe-west1-docker.pkg.dev/$PROJECT_ID/gmi/qms-backend
   _SERVICE:     gmi-qms
   _DB_INSTANCE: gmi-qms-db
   _DOMAIN:      qms.gmiberia.com
@@ -17,10 +16,10 @@ steps:
     args:
       - build
       - --platform=linux/amd64
-      - --tag=$_IMAGE:$COMMIT_SHA
-      - --tag=$_IMAGE:latest
+      - --tag=europe-west1-docker.pkg.dev/$PROJECT_ID/gmi/qms-backend:$COMMIT_SHA
+      - --tag=europe-west1-docker.pkg.dev/$PROJECT_ID/gmi/qms-backend:latest
       - --build-arg=GIT_SHA=$COMMIT_SHA
-      - --cache-from=$_IMAGE:latest
+      - --cache-from=europe-west1-docker.pkg.dev/$PROJECT_ID/gmi/qms-backend:latest
       - src/
 
   # ── 2. Push to Artifact Registry ──────────────────────────────────────────
@@ -30,7 +29,7 @@ steps:
     args:
       - push
       - --all-tags
-      - $_IMAGE
+      - europe-west1-docker.pkg.dev/$PROJECT_ID/gmi/qms-backend
 
   # ── 3. Deploy to Cloud Run ─────────────────────────────────────────────────
   - name: gcr.io/google.com/cloudsdktool/cloud-sdk
@@ -41,7 +40,7 @@ steps:
       - -c
       - |
         gcloud run deploy $_SERVICE \
-          --image=$_IMAGE:$COMMIT_SHA \
+          --image=europe-west1-docker.pkg.dev/$PROJECT_ID/gmi/qms-backend:$COMMIT_SHA \
           --region=$_REGION \
           --platform=managed \
           --allow-unauthenticated \
@@ -56,8 +55,8 @@ steps:
           --quiet
 
 images:
-  - $_IMAGE:$COMMIT_SHA
-  - $_IMAGE:latest
+  - europe-west1-docker.pkg.dev/$PROJECT_ID/gmi/qms-backend:$COMMIT_SHA
+  - europe-west1-docker.pkg.dev/$PROJECT_ID/gmi/qms-backend:latest
 
 options:
   logging: CLOUD_LOGGING_ONLY
