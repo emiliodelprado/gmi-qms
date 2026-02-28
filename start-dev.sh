@@ -2,6 +2,7 @@
 set -e
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+VENV="$ROOT/src/.venv"
 
 echo "▶ Levantando PostgreSQL..."
 docker compose up -d db
@@ -16,20 +17,28 @@ echo "▶ Cargando variables de entorno..."
 cd "$ROOT/src"
 set -a && source .env.local && set +a
 
+echo "▶ Configurando entorno virtual Python..."
+if [ ! -d "$VENV" ]; then
+  python3 -m venv "$VENV"
+  echo "  Entorno virtual creado en $VENV"
+fi
+
 echo "▶ Instalando dependencias Python (si hace falta)..."
-pip3 install -r requirements.txt -q
+"$VENV/bin/pip" install -r requirements.txt -q
 
 echo "▶ Aplicando migraciones Alembic..."
-python3 -m alembic upgrade head
+"$VENV/bin/python" -m alembic upgrade head
 
 echo "▶ Arrancando backend FastAPI (puerto 8000)..."
-python3 -m uvicorn main:app --reload --port 8000 &
+"$VENV/bin/python" -m uvicorn main:app --reload --port 8000 &
 BACKEND_PID=$!
 echo "  Backend PID: $BACKEND_PID"
 
 echo "▶ Instalando dependencias frontend (si hace falta)..."
 cd "$ROOT/src/frontend"
 npm install --silent
+# Eliminar flag de cuarentena de macOS en binarios nativos
+xattr -rd com.apple.quarantine node_modules 2>/dev/null || true
 
 echo "▶ Arrancando frontend Vite (puerto 3001)..."
 npm run dev &
