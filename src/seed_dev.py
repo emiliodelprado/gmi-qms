@@ -123,24 +123,62 @@ SEED_USERS = [
 ]
 
 
+SEED_STRUCTURE = [
+    # (tipo, label, code, parent_code, sort_order)
+    ("Grupo",         "Global Manager Iberia",   "GMI",    None,  0),
+    ("Entidad Legal", "Global Manager Spain",    "GMS",    "GMI", 0),
+    ("Marca",         "EPUNTO",                  "EPT",    "GMS", 0),
+    ("Marca",         "LIQUID",                  "LIQ",    "GMS", 1),
+    ("Marca",         "THE LIQUID FINANCE",      "TLF",    "GMS", 2),
+    ("Entidad Legal", "Global Manager Portugal", "GMP",    "GMI", 1),
+    ("Marca",         "EPUNTO",                  "EPT-PT", "GMP", 0),
+    ("Marca",         "LIQUID",                  "LIQ-PT", "GMP", 1),
+]
+
+
+def seed_structure(db):
+    count = db.query(models.CorporateEntity).count()
+    if count > 0:
+        print(f"  Estructura ya tiene {count} entidades — seed omitido.")
+        return
+
+    # Two-pass: insert roots first, then children (need parent ids)
+    by_code = {}
+    for tipo, label, code, parent_code, sort_order in SEED_STRUCTURE:
+        parent_id = by_code.get(parent_code) if parent_code else None
+        obj = models.CorporateEntity(
+            tipo=tipo, label=label, code=code,
+            parent_id=parent_id, sort_order=sort_order,
+        )
+        db.add(obj)
+        db.flush()
+        by_code[code] = obj.id
+        print(f"  ✓  [{tipo:<14}] {label:<30} ({code})")
+
+    db.commit()
+    print(f"\n  Estructura corporativa: {len(SEED_STRUCTURE)} entidades creadas.")
+
+
 def run():
     db = SessionLocal()
     try:
         count = db.query(models.UserAccess).count()
         if count > 0:
             print(f"  BD ya tiene {count} usuarios — seed omitido.")
-            return
+        else:
+            created = 0
+            for u in SEED_USERS:
+                crud.create_user_access(db, u)
+                created += 1
+                tenant_summary = ", ".join(f"{t.company_id}·{t.brand_id}={t.role}" for t in u.tenants)
+                print(f"  ✓  {u.email:<40}  [{tenant_summary}]")
+            print(f"\n  Seed completado: {created} creados.")
 
-        created = 0
-        for u in SEED_USERS:
-            crud.create_user_access(db, u)
-            created += 1
-            tenant_summary = ", ".join(f"{t.company_id}·{t.brand_id}={t.role}" for t in u.tenants)
-            print(f"  ✓  {u.email:<40}  [{tenant_summary}]")
+        print()
+        print("▶ Seeding estructura corporativa…")
+        seed_structure(db)
     finally:
         db.close()
-
-    print(f"\n  Seed completado: {created} creados.")
 
 
 if __name__ == "__main__":

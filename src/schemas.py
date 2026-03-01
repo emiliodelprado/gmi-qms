@@ -115,3 +115,39 @@ class RolePermissionEntry(BaseModel):
 
 class RolePermissionBulkSave(BaseModel):
     permissions: List[RolePermissionEntry]
+
+
+# ── UI Brand Settings ──────────────────────────────────────────────────────────
+class UIBrandSettingsUpsert(BaseModel):
+    company_id:    str
+    brand_id:      str = ""
+    logo_data:     Optional[str] = None   # base64 data URL or None to remove
+    primary_color: Optional[str] = None   # e.g. "#A91E22"
+
+
+class CorporateEntityCreate(BaseModel):
+    tipo:       str
+    label:      str
+    code:       str
+    parent_id:  Optional[int] = None
+    activo:     int = 1
+    sort_order: int = 0
+
+
+class CorporateEntityRead(CorporateEntityCreate):
+    id:         int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class UIBrandSettingsRead(BaseModel):
+    company_id:    str
+    brand_id:      str
+    logo_data:     Optional[str] = None
+    primary_color: Optional[str] = None
+    updated_at:    Optional[datetime] = None
+
+    class Config:
+        from_attributes = True

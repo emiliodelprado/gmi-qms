@@ -325,6 +325,107 @@ def get_audit_log(
     return q.order_by(desc(models.AuditLog.timestamp)).limit(limit).all()
 
 
+# ── UI Brand Settings ──────────────────────────────────────────────────────────
+def get_ui_brand_settings(
+    db: Session, company_id: str, brand_id: str
+) -> Optional[models.UIBrandSettings]:
+    return (
+        db.query(models.UIBrandSettings)
+        .filter(
+            models.UIBrandSettings.company_id == company_id,
+            models.UIBrandSettings.brand_id   == brand_id,
+        )
+        .first()
+    )
+
+
+def upsert_ui_brand_settings(
+    db: Session, payload: schemas.UIBrandSettingsUpsert
+) -> models.UIBrandSettings:
+    obj = get_ui_brand_settings(db, payload.company_id, payload.brand_id)
+    if obj:
+        obj.logo_data     = payload.logo_data
+        obj.primary_color = payload.primary_color
+        obj.updated_at    = datetime.utcnow()
+    else:
+        obj = models.UIBrandSettings(
+            company_id    = payload.company_id,
+            brand_id      = payload.brand_id,
+            logo_data     = payload.logo_data,
+            primary_color = payload.primary_color,
+            updated_at    = datetime.utcnow(),
+        )
+        db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def delete_ui_brand_settings(
+    db: Session, company_id: str, brand_id: str
+) -> bool:
+    obj = get_ui_brand_settings(db, company_id, brand_id)
+    if not obj:
+        return False
+    db.delete(obj)
+    db.commit()
+    return True
+
+
+# ── Corporate Structure ────────────────────────────────────────────────────────
+def get_corporate_entities(db: Session) -> List[models.CorporateEntity]:
+    return db.query(models.CorporateEntity).order_by(
+        models.CorporateEntity.sort_order, models.CorporateEntity.id
+    ).all()
+
+
+def get_corporate_entity(db: Session, eid: int) -> Optional[models.CorporateEntity]:
+    return db.query(models.CorporateEntity).filter(models.CorporateEntity.id == eid).first()
+
+
+def create_corporate_entity(
+    db: Session, payload: schemas.CorporateEntityCreate
+) -> models.CorporateEntity:
+    obj = models.CorporateEntity(
+        tipo       = payload.tipo,
+        label      = payload.label,
+        code       = payload.code,
+        parent_id  = payload.parent_id,
+        activo     = payload.activo,
+        sort_order = payload.sort_order,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def update_corporate_entity(
+    db: Session, eid: int, payload: schemas.CorporateEntityCreate
+) -> Optional[models.CorporateEntity]:
+    obj = get_corporate_entity(db, eid)
+    if not obj:
+        return None
+    obj.tipo       = payload.tipo
+    obj.label      = payload.label
+    obj.code       = payload.code
+    obj.parent_id  = payload.parent_id
+    obj.activo     = payload.activo
+    obj.sort_order = payload.sort_order
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def delete_corporate_entity(db: Session, eid: int) -> bool:
+    obj = get_corporate_entity(db, eid)
+    if not obj:
+        return False
+    db.delete(obj)
+    db.commit()
+    return True
+
+
 # ── Role permissions ───────────────────────────────────────────────────────────
 def get_role_permissions(db: Session) -> List[models.RolePermission]:
     return db.query(models.RolePermission).order_by(

@@ -1,5 +1,5 @@
 """SQLAlchemy ORM models for GMI Quality Management System."""
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
@@ -67,6 +67,35 @@ class AuditLog(Base):
     brand_id   = Column(String(50),  nullable=True)
     ip_address = Column(String(45),  nullable=True)
     timestamp  = Column(DateTime, default=datetime.utcnow, index=True)
+
+
+class UIBrandSettings(Base):
+    """Per-(company, brand) UI customization: logo and primary color."""
+    __tablename__ = "ui_brand_settings"
+    __table_args__ = (
+        UniqueConstraint("company_id", "brand_id", name="uq_ui_brand_settings"),
+    )
+
+    id            = Column(Integer, primary_key=True, index=True)
+    company_id    = Column(String(10), nullable=False)
+    brand_id      = Column(String(50), nullable=False, default="")  # "" = company-wide
+    logo_data     = Column(Text, nullable=True)        # base64 data URL
+    primary_color = Column(String(20), nullable=True)  # e.g. "#A91E22"
+    updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class CorporateEntity(Base):
+    """Hierarchical corporate structure: Grupo → Entidad Legal → Marca."""
+    __tablename__ = "corporate_entities"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    tipo       = Column(String(20),  nullable=False)             # Grupo | Entidad Legal | Marca
+    label      = Column(String(200), nullable=False)             # Display name
+    code       = Column(String(20),  nullable=False)             # Short code, e.g. GMS
+    parent_id  = Column(Integer, ForeignKey("corporate_entities.id", ondelete="SET NULL"), nullable=True)
+    activo     = Column(Integer, default=1)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 
 class RolePermission(Base):

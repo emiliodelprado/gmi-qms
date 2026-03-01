@@ -445,6 +445,109 @@ def save_role_permissions(
     return {"ok": True, "saved": len(payload.permissions)}
 
 
+# ── UI BRAND SETTINGS ────────────────────────────────────────────────────────
+@app.get("/api/adm/ui/brand-settings", response_model=schemas.UIBrandSettingsRead)
+def get_ui_brand_settings(
+    company_id: str     = Query(...),
+    brand_id:   str     = Query(""),
+    db:         Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    ensure_tables()
+    obj = crud.get_ui_brand_settings(db, company_id, brand_id)
+    if not obj:
+        return schemas.UIBrandSettingsRead(company_id=company_id, brand_id=brand_id)
+    return obj
+
+
+@app.put("/api/adm/ui/brand-settings", response_model=schemas.UIBrandSettingsRead)
+def upsert_ui_brand_settings(
+    payload: schemas.UIBrandSettingsUpsert,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    ensure_tables()
+    obj = crud.upsert_ui_brand_settings(db, payload)
+    crud.write_audit(db, user.email, "UI_SETTINGS",
+                     f"{payload.company_id}·{payload.brand_id}",
+                     company_id=payload.company_id, brand_id=payload.brand_id,
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.delete("/api/adm/ui/brand-settings", status_code=204)
+def delete_ui_brand_settings(
+    company_id: str     = Query(...),
+    brand_id:   str     = Query(""),
+    request:    Request = None,
+    db:         Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    ensure_tables()
+    crud.delete_ui_brand_settings(db, company_id, brand_id)
+    crud.write_audit(db, user.email, "UI_SETTINGS_DELETE",
+                     f"{company_id}·{brand_id}",
+                     company_id=company_id, brand_id=brand_id,
+                     ip_address=_client_ip(request))
+
+
+# ── CORPORATE STRUCTURE ──────────────────────────────────────────────────────
+@app.get("/api/adm/structure", response_model=List[schemas.CorporateEntityRead])
+def list_structure(
+    db:   Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    return crud.get_corporate_entities(db)
+
+
+@app.post("/api/adm/structure", response_model=schemas.CorporateEntityRead, status_code=201)
+def create_entity(
+    payload: schemas.CorporateEntityCreate,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    ensure_tables()
+    obj = crud.create_corporate_entity(db, payload)
+    crud.write_audit(db, user.email, "STRUCTURE_CREATE", f"{payload.tipo}:{payload.code}",
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.put("/api/adm/structure/{eid}", response_model=schemas.CorporateEntityRead)
+def update_entity(
+    eid:     int,
+    payload: schemas.CorporateEntityCreate,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    ensure_tables()
+    obj = crud.update_corporate_entity(db, eid, payload)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Entidad no encontrada")
+    crud.write_audit(db, user.email, "STRUCTURE_EDIT", f"{payload.tipo}:{payload.code}",
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.delete("/api/adm/structure/{eid}", status_code=204)
+def delete_entity(
+    eid:     int,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    ensure_tables()
+    obj = crud.get_corporate_entity(db, eid)
+    if not crud.delete_corporate_entity(db, eid):
+        raise HTTPException(status_code=404, detail="Entidad no encontrada")
+    crud.write_audit(db, user.email, "STRUCTURE_DELETE", f"entity:{eid}",
+                     ip_address=_client_ip(request))
+
+
 # ── Serve frontend React (catch-all — siempre al final) ──────────────────────
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse

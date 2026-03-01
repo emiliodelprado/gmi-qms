@@ -134,7 +134,7 @@ function findModuleAndFnForPath(path) {
 }
 
 // ─── Sidebar component ────────────────────────────────────────────────────────
-export default function Sidebar({ user }) {
+export default function Sidebar({ user, brandColor }) {
   const location = useLocation();
   const navigate  = useNavigate();
   const [mini, setMini] = useState(() => localStorage.getItem("qms_sidebar_mini") === "1");
@@ -197,30 +197,20 @@ export default function Sidebar({ user }) {
   return (
     <div style={{
       width: mini ? 52 : 220, minHeight: "100vh",
-      background: COLORS.sidebar, display: "flex", flexDirection: "column",
+      background: brandColor || COLORS.sidebar, display: "flex", flexDirection: "column",
       flexShrink: 0, transition: "width 0.2s ease", overflow: "hidden",
     }}>
-      {/* Header */}
-      <div style={{ padding: mini ? "14px 6px 12px" : "14px 12px 12px", borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: mini ? 0 : 8, justifyContent: mini ? "center" : "flex-start" }}>
-          <div style={{ width: 38, flexShrink: 0, cursor: "pointer" }} onClick={() => navigate("/home")} title="Inicio">
-            <img src="/logo.png" alt="GMI" style={{ width: "100%", display: "block", borderRadius: 3 }} />
-          </div>
-          {!mini && (
-            <div style={{ fontSize: 8, color: "#fff", letterSpacing: "0.12em", textTransform: "uppercase", fontFamily: H, fontWeight: 800, lineHeight: 1.4, flex: 1 }}>
-              Quality<br />Management<br />System
-            </div>
-          )}
-          <button onClick={toggleMini} title={mini ? "Expandir" : "Colapsar"}
-            style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 4, flexShrink: 0, display: "flex", alignItems: "center", opacity: 0.45 }}
-            onMouseEnter={e => e.currentTarget.style.opacity = "1"}
-            onMouseLeave={e => e.currentTarget.style.opacity = "0.45"}>
-            <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-              style={{ transform: mini ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-              <polyline points="15 18 9 12 15 6" />
-            </svg>
-          </button>
-        </div>
+      {/* Collapse toggle — height matches TopBar (78px) */}
+      <div style={{ height: 78, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: mini ? "center" : "flex-end", padding: mini ? 0 : "0 10px", borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
+        <button onClick={toggleMini} title={mini ? "Expandir" : "Colapsar"}
+          style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 4, display: "flex", alignItems: "center", opacity: 0.45 }}
+          onMouseEnter={e => e.currentTarget.style.opacity = "1"}
+          onMouseLeave={e => e.currentTarget.style.opacity = "0.45"}>
+          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+            style={{ transform: mini ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
       </div>
 
       {/* Main nav */}

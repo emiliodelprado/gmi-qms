@@ -245,17 +245,39 @@ const Profile = ({ user }) => {
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 const Layout = ({ user }) => {
-  const [company, setCompany] = useState("GMS");
-  const [brand,   setBrand]   = useState("EPUNTO");
+  const [company,    setCompany]    = useState("GMS");
+  const [brand,      setBrand]      = useState("EPUNTO");
+  const [brandColor, setBrandColor] = useState(COLORS.sidebar);
   const perms = usePermissions(user, company, brand);
+
+  // Fetch brand color when company/brand selector changes
+  useEffect(() => {
+    setBrandColor(COLORS.sidebar);
+    apiFetch(`/api/adm/ui/brand-settings?company_id=${encodeURIComponent(company)}&brand_id=${encodeURIComponent(brand || "")}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.primary_color) setBrandColor(data.primary_color); })
+      .catch(() => {});
+  }, [company, brand]);
+
+  // Sync immediately when AdmUI saves settings
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail.company_id === company && e.detail.brand_id === (brand || "")) {
+        setBrandColor(e.detail.primary_color || COLORS.sidebar);
+      }
+    };
+    window.addEventListener("brand-settings-saved", handler);
+    return () => window.removeEventListener("brand-settings-saved", handler);
+  }, [company, brand]);
 
   return (
     <CompanyContext.Provider value={{ company, brand, setCompany, setBrand }}>
       <PermissionsContext.Provider value={perms}>
-        <div style={{ display: "flex", minHeight: "100vh" }}>
-          <Sidebar user={user} />
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
-            <TopBar user={user} company={company} brand={brand} setCompany={setCompany} setBrand={setBrand} />
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
+          <TopBar user={user} company={company} brand={brand} setCompany={setCompany} setBrand={setBrand} />
+          <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+            <Sidebar user={user} brandColor={brandColor} />
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
             <main style={{ flex: 1, padding: "28px 30px", overflow: "auto", background: COLORS.bg }}>
               <Routes>
                 <Route path="/"                  element={<Navigate to="/home" replace />} />
@@ -295,6 +317,7 @@ const Layout = ({ user }) => {
               </Routes>
             </main>
             <AppFooter />
+            </div>
           </div>
         </div>
       </PermissionsContext.Provider>

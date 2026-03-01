@@ -62,8 +62,9 @@ export default function TopBar({ user, company, brand, setCompany, setBrand }) {
   const title       = PAGE_TITLES[location.pathname] ?? "";
   const displayName = user?.name || user?.email || "Usuario";
 
-  const [open,    setOpen]    = useState(false);
-  const [profile, setProfile] = useState(null);   // data from /auth/me
+  const [open,      setOpen]      = useState(false);
+  const [profile,   setProfile]   = useState(null);   // data from /auth/me
+  const [brandLogo, setBrandLogo] = useState(null);   // base64 data URL or null
   const dropRef = useRef(null);
 
   // Close when clicking outside
@@ -75,6 +76,30 @@ export default function TopBar({ user, company, brand, setCompany, setBrand }) {
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  // Fetch brand logo whenever company/brand selector changes
+  useEffect(() => {
+    setBrandLogo(null);
+    if (!company) return;
+    fetch(
+      `/api/adm/ui/brand-settings?company_id=${encodeURIComponent(company)}&brand_id=${encodeURIComponent(brand ?? "")}`,
+      { credentials: "include" }
+    )
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.logo_data) setBrandLogo(data.logo_data); })
+      .catch(() => {});
+  }, [company, brand]);
+
+  // Update logo immediately when brand settings are saved from AdmUI
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail.company_id === company && e.detail.brand_id === (brand || "")) {
+        setBrandLogo(e.detail.logo_data || null);
+      }
+    };
+    window.addEventListener("brand-settings-saved", handler);
+    return () => window.removeEventListener("brand-settings-saved", handler);
+  }, [company, brand]);
 
   // Fetch real profile when dropdown opens
   useEffect(() => {
@@ -101,20 +126,47 @@ export default function TopBar({ user, company, brand, setCompany, setBrand }) {
   return (
     <div style={{
       background: COLORS.white, borderBottom: `1px solid ${COLORS.border}`,
-      padding: "0 24px", height: 52,
+      padding: "0 24px", height: 78, position: "sticky", top: 0, zIndex: 100,
       display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0,
     }}>
-      {/* Left: selectors + title */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {/* Left: brand identity + selectors + title */}
+      <div style={{ display: "flex", alignItems: "center" }}>
+        {/* Logo */}
+        <img
+          src="/logo.png" alt="GMI"
+          style={{ height: 66, cursor: "pointer", flexShrink: 0, display: "block" }}
+          onClick={() => navigate("/home")}
+          title="Inicio"
+        />
+        {/* App name */}
+        <div style={{ marginLeft: 10, fontSize: 9, fontWeight: 800, color: COLORS.gray, letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: H, lineHeight: 1.6, flexShrink: 0 }}>
+          Quality<br />Management<br />System
+        </div>
+        {/* Divider */}
+        <div style={{ width: 1, height: 40, background: COLORS.border, margin: "0 20px", flexShrink: 0 }} />
+        {/* Selectors */}
         <select style={selStyle} value={company} onChange={e => setCompany(e.target.value)}>
           {COMPANIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
+        <div style={{ width: 8 }} />
         <select style={selStyle} value={brand} onChange={e => setBrand(e.target.value)}>
+          <option value="">Todas las marcas</option>
           {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
         </select>
+        {/* Brand logo — shown inline, left of the page title */}
+        {brandLogo && (
+          <>
+            <div style={{ width: 1, height: 40, background: COLORS.border, margin: "0 16px", flexShrink: 0 }} />
+            <img
+              src={brandLogo}
+              alt={`${company}${brand ? ` · ${brand}` : ""}`}
+              style={{ height: 40, maxWidth: 160, objectFit: "contain", flexShrink: 0, display: "block" }}
+            />
+          </>
+        )}
         {title && (
           <>
-            <span style={{ color: COLORS.border, fontSize: 16 }}>·</span>
+            <span style={{ color: COLORS.border, fontSize: 16, margin: "0 10px" }}>·</span>
             <span style={{ fontSize: 15, fontWeight: 800, color: COLORS.gray, fontFamily: H }}>
               {title}
             </span>
