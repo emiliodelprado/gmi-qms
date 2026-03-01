@@ -125,16 +125,14 @@ SEED_USERS = [
 
 def run():
     db = SessionLocal()
-    created = 0
-    skipped = 0
     try:
+        count = db.query(models.UserAccess).count()
+        if count > 0:
+            print(f"  BD ya tiene {count} usuarios — seed omitido.")
+            return
+
+        created = 0
         for u in SEED_USERS:
-            any_existing = db.query(models.UserAccess).filter(
-                models.UserAccess.email == u.email
-            ).first()
-            if any_existing:
-                skipped += 1
-                continue
             crud.create_user_access(db, u)
             created += 1
             tenant_summary = ", ".join(f"{t.company_id}·{t.brand_id}={t.role}" for t in u.tenants)
@@ -142,7 +140,7 @@ def run():
     finally:
         db.close()
 
-    print(f"\n  Seed completado: {created} creados, {skipped} ya existían.")
+    print(f"\n  Seed completado: {created} creados.")
 
 
 if __name__ == "__main__":

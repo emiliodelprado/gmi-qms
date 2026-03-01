@@ -14,51 +14,81 @@ depends_on    = None
 
 
 def upgrade():
-    # ── 1. Create user_tenants ───────────────────────────────────────────────
-    op.create_table(
-        'user_tenants',
-        sa.Column('id',         sa.Integer(),    nullable=False),
-        sa.Column('user_id',    sa.Integer(),    nullable=False),
-        sa.Column('company_id', sa.String(10),   nullable=False),
-        sa.Column('brand_id',   sa.String(50),   nullable=False),
-        sa.Column('role',       sa.String(50),   nullable=False),
-        sa.Column('activo',     sa.Integer(),    nullable=True, server_default='1'),
-        sa.Column('created_at', sa.DateTime(),   nullable=True),
-        sa.PrimaryKeyConstraint('id'),
-        sa.ForeignKeyConstraint(['user_id'], ['user_access.id'], ondelete='CASCADE'),
-        sa.UniqueConstraint('user_id', 'company_id', 'brand_id', name='uq_user_tenant'),
-    )
-    op.create_index('ix_ut_id',      'user_tenants', ['id'],      unique=False)
-    op.create_index('ix_ut_user_id', 'user_tenants', ['user_id'], unique=False)
+    conn = op.get_bind()
 
-    # ── 2. Migrate existing data ─────────────────────────────────────────────
-    # Each user_access row had exactly one (company_id, brand_id, role) → move it to user_tenants
-    op.execute("""
-        INSERT INTO user_tenants (user_id, company_id, brand_id, role, activo, created_at)
-        SELECT
-            id,
-            COALESCE(company_id, 'GMS'),
-            COALESCE(brand_id,   'EPUNTO'),
-            COALESCE(role,       'Colaborador'),
-            activo,
-            created_at
-        FROM user_access
-    """)
+    # ── 1. Create user_tenants (idempotent) ──────────────────────────────────
+    conn.execute(sa.text("""
+        CREATE TABLE IF NOT EXISTS user_tenants (
+            id         SERIAL      PRIMARY KEY,
+            user_id    INTEGER     NOT NULL REFERENCES user_access(id) ON DELETE CASCADE,
+            company_id VARCHAR(10) NOT NULL,
+            brand_id   VARCHAR(50) NOT NULL,
+            role       VARCHAR(50) NOT NULL,
+            activo     INTEGER     DEFAULT 1,
+            created_at TIMESTAMP,
+            CONSTRAINT uq_user_tenant UNIQUE (user_id, company_id, brand_id)
+        )
+    """))
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_ut_id      ON user_tenants (id)"
+    ))
+    conn.execute(sa.text(
+        "CREATE INDEX IF NOT EXISTS ix_ut_user_id ON user_tenants (user_id)"
+    ))
 
-    # ── 3. Drop migrated columns from user_access ────────────────────────────
-    op.drop_column('user_access', 'role')
-    op.drop_column('user_access', 'company_id')
-    op.drop_column('user_access', 'brand_id')
+    # ── 2. Migrate data only if source columns still exist ───────────────────
+    has_role = conn.execute(sa.text("""
+        SELECT 1 FROM information_schema.columns
+        WHERE table_name = 'user_access' AND column_name = 'role'
+    """)).fetchone()
+
+    if has_role:
+        conn.execute(sa.text("""
+            INSERT INTO user_tenants
+                (user_id, company_id, brand_id, role, activo, created_at)
+            SELECT
+                id,
+                COALESCE(company_id, 'GMS'),
+                COALESCE(brand_id,   'EPUNTO'),
+                COALESCE(role,       'Colaborador'),
+                activo,
+                created_at
+            FROM user_access
+            ON CONFLICT ON CONSTRAINT uq_user_tenant DO NOTHING
+        """))
+
+        # ── 3. Drop migrated columns ─────────────────────────────────────────
+        conn.execute(sa.text(
+            "ALTER TABLE user_access DROP COLUMN IF EXISTS role"
+        ))
+        conn.execute(sa.text(
+            "ALTER TABLE user_access DROP COLUMN IF EXISTS company_id"
+        ))
+        conn.execute(sa.text(
+            "ALTER TABLE user_access DROP COLUMN IF EXISTS brand_id"
+        ))
 
 
 def downgrade():
-    # Re-add columns
-    op.add_column('user_access', sa.Column('role',       sa.String(50),  nullable=True))
-    op.add_column('user_access', sa.Column('company_id', sa.String(10),  nullable=True, server_default='GMS'))
-    op.add_column('user_access', sa.Column('brand_id',   sa.String(50),  nullable=True, server_default='EPUNTO'))
+    conn = op.get_bind()
 
-    # Restore first tenant for each user
-    op.execute("""
+    # Re-add columns if they don't exist
+    for col, typ, default in [
+        ("role",       "VARCHAR(50)", "'Colaborador'"),
+        ("company_id", "VARCHAR(10)", "'GMS'"),
+        ("brand_id",   "VARCHAR(50)", "'EPUNTO'"),
+    ]:
+        exists = conn.execute(sa.text(f"""
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'user_access' AND column_name = '{col}'
+        """)).fetchone()
+        if not exists:
+            conn.execute(sa.text(
+                f"ALTER TABLE user_access ADD COLUMN {col} VARCHAR DEFAULT {default}"
+            ))
+
+    # Restore first tenant per user
+    conn.execute(sa.text("""
         UPDATE user_access ua
         SET
             role       = ut.role,
@@ -70,8 +100,8 @@ def downgrade():
             ORDER BY user_id, id
         ) ut
         WHERE ua.id = ut.user_id
-    """)
+    """))
 
-    op.drop_index('ix_ut_user_id', table_name='user_tenants')
-    op.drop_index('ix_ut_id',      table_name='user_tenants')
-    op.drop_table('user_tenants')
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_ut_user_id"))
+    conn.execute(sa.text("DROP INDEX IF EXISTS ix_ut_id"))
+    conn.execute(sa.text("DROP TABLE IF EXISTS user_tenants"))

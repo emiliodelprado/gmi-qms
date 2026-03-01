@@ -152,6 +152,11 @@ export default function AdmUsers() {
     if (!form.email.trim())        { setFormError("El email es obligatorio"); return; }
     if (!editing && !form.password.trim()) { setFormError("La contraseña es obligatoria para nuevos usuarios"); return; }
     if (form.tenants.length === 0) { setFormError("El usuario debe tener al menos un acceso asignado"); return; }
+    const tenantKeys = form.tenants.map(t => `${t.company_id}|${t.brand_id}`);
+    if (new Set(tenantKeys).size !== tenantKeys.length) {
+      setFormError("Hay accesos duplicados: la combinación empresa·marca debe ser única por usuario.");
+      return;
+    }
     setSaving(true);
     setFormError(null);
     try {

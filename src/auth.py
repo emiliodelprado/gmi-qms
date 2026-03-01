@@ -11,42 +11,8 @@ DEV_MODE = os.environ.get("DEV_MODE", "false").lower() == "true"
 # Roles with full admin privileges
 ADMIN_ROLES = {"IT", "admin"}
 
-DEV_USERS = {
-    "admin": schemas.UserInfo(
-        user_id="dev-admin",
-        email="dev-admin@gmiberia.com",
-        name="Dev User · IT",
-        roles=["IT"],
-        role="IT",
-        company_id="GMS",
-        brand_id="EPUNTO",
-    ),
-    "auditor": schemas.UserInfo(
-        user_id="dev-auditor",
-        email="dev-auditor@gmiberia.com",
-        name="Dev User · Auditor",
-        roles=["Auditor"],
-        role="Auditor",
-        company_id="GMS",
-        brand_id="EPUNTO",
-    ),
-    "user": schemas.UserInfo(
-        user_id="dev-user",
-        email="dev-user@gmiberia.com",
-        name="Dev User · Colaborador",
-        roles=["Colaborador"],
-        role="Colaborador",
-        company_id="GMS",
-        brand_id="EPUNTO",
-    ),
-}
-
 
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> schemas.UserInfo:
-    if DEV_MODE:
-        role_key = request.cookies.get("gmi_dev_role", "admin")
-        return DEV_USERS.get(role_key, DEV_USERS["admin"])
-
     token = request.cookies.get("gmi_session")
     if not token:
         raise HTTPException(status_code=401, detail="Not authenticated")

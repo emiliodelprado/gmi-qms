@@ -5,6 +5,7 @@ from fastapi import FastAPI, Depends, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from typing import List, Optional
 import os, time
 
@@ -107,16 +108,56 @@ def my_permissions(
     return {"role": current_user.role, "permissions": {r.screen_id: r.permission for r in rows}}
 
 
-@app.get("/auth/dev-login/{role}")
-def dev_login(role: str):
-    """DEV_MODE only: switch active dev user role via browser URL."""
+@app.get("/auth/dev-users")
+def dev_users(db: Session = Depends(get_db)):
+    """DEV_MODE only: list active users for the dev login picker."""
     if not DEV_MODE:
         raise HTTPException(status_code=404, detail="Not found")
-    valid_roles = ("admin", "auditor", "user")
-    if role not in valid_roles:
-        raise HTTPException(status_code=400, detail=f"Role '{role}' no válido. Usa: {' | '.join(valid_roles)}")
-    response = RedirectResponse(url="/", status_code=302)
-    response.set_cookie(key="gmi_dev_role", value=role, httponly=True, samesite="lax")
+    users = (
+        db.query(models.UserAccess)
+        .filter(models.UserAccess.activo == 1)
+        .order_by(models.UserAccess.name)
+        .all()
+    )
+    return [
+        {
+            "id": u.id,
+            "email": u.email,
+            "name": u.name or u.email,
+            "tenants": [
+                {"company_id": t.company_id, "brand_id": t.brand_id, "role": t.role}
+                for t in u.tenants if t.activo == 1
+            ],
+        }
+        for u in users
+    ]
+
+
+@app.get("/auth/dev-login/user/{user_id}")
+def dev_login_as_user(user_id: int, db: Session = Depends(get_db)):
+    """DEV_MODE only: create a real session token for the given user."""
+    if not DEV_MODE:
+        raise HTTPException(status_code=404, detail="Not found")
+    user = db.query(models.UserAccess).filter(
+        models.UserAccess.id == user_id,
+        models.UserAccess.activo == 1,
+    ).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+
+    from saml_handler import _sign_token
+    session_token = _sign_token({
+        "user_id": str(user.id),
+        "email":   user.email,
+        "name":    user.name or "",
+        "roles":   [t.role for t in user.tenants if t.activo == 1],
+        "exp":     int(time.time()) + 28800,
+    })
+    response = JSONResponse({"ok": True, "email": user.email})
+    response.set_cookie(
+        key="gmi_session", value=session_token,
+        httponly=True, secure=False, samesite="lax", max_age=28800,
+    )
     return response
 
 
@@ -227,7 +268,11 @@ def create_user(
     user=Depends(require_admin),
 ):
     ensure_tables()
-    obj = crud.create_user_access(db, payload)
+    try:
+        obj = crud.create_user_access(db, payload)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Ya existe un usuario con ese email, o hay accesos duplicados (empresa·marca).")
     crud.write_audit(db, user.email, "USER_CREATE", payload.email,
                      company_id=user.company_id, brand_id=user.brand_id,
                      ip_address=_client_ip(request))
@@ -243,7 +288,14 @@ def update_user(
     user=Depends(require_admin),
 ):
     ensure_tables()
-    obj = crud.update_user_access(db, uid, payload)
+    # Prevent self-deactivation
+    if uid == int(user.user_id) and payload.activo == 0:
+        raise HTTPException(status_code=400, detail="No puedes desactivar tu propia cuenta")
+    try:
+        obj = crud.update_user_access(db, uid, payload)
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=400, detail="Hay accesos duplicados: la combinación empresa·marca debe ser única por usuario.")
     if not obj:
         raise HTTPException(status_code=404, detail="User not found")
     crud.write_audit(db, user.email, "EDIT", f"user:{payload.email}",
@@ -260,6 +312,8 @@ def delete_user(
     user=Depends(require_admin),
 ):
     ensure_tables()
+    if uid == int(user.user_id):
+        raise HTTPException(status_code=400, detail="No puedes eliminar tu propia cuenta")
     target = crud.get_user_access_by_id(db, uid)
     if not crud.delete_user_access(db, uid):
         raise HTTPException(status_code=404, detail="User not found")
