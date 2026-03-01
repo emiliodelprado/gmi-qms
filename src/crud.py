@@ -45,6 +45,7 @@ def _user_to_read(
         tenants    = [
             schemas.UserTenantRead(
                 id         = t.id,
+                scope      = t.scope,
                 company_id = t.company_id,
                 brand_id   = t.brand_id,
                 role       = t.role,
@@ -108,6 +109,7 @@ def create_user_access(db: Session, payload: schemas.UserAccessCreate) -> schema
     for t in payload.tenants:
         db.add(models.UserTenant(
             user_id    = obj.id,
+            scope      = t.scope,
             company_id = t.company_id,
             brand_id   = t.brand_id,
             role       = t.role,
@@ -138,6 +140,7 @@ def update_user_access(
     for t in payload.tenants:
         db.add(models.UserTenant(
             user_id    = user_id,
+            scope      = t.scope,
             company_id = t.company_id,
             brand_id   = t.brand_id,
             role       = t.role,
@@ -178,16 +181,133 @@ def get_user_tenants(db: Session, user_id: int) -> List[models.UserTenant]:
 def get_user_tenant_by_context(
     db: Session, user_id: int, company_id: str, brand_id: str
 ) -> Optional[models.UserTenant]:
-    return (
+    """Resolve the effective role for (user_id, company_id, brand_id).
+
+    Priority: marca > entidad > grupo.
+    Navigates corporate_entities to validate hierarchy membership.
+    """
+    # 1. Exact Marca match
+    tenant = (
         db.query(models.UserTenant)
         .filter(
             models.UserTenant.user_id    == user_id,
             models.UserTenant.company_id == company_id,
             models.UserTenant.brand_id   == brand_id,
+            models.UserTenant.scope      == "marca",
             models.UserTenant.activo     == 1,
         )
         .first()
     )
+    if tenant:
+        return tenant
+
+    # 2. Entidad level — verify brand belongs to this entity
+    tenant = (
+        db.query(models.UserTenant)
+        .filter(
+            models.UserTenant.user_id    == user_id,
+            models.UserTenant.company_id == company_id,
+            models.UserTenant.scope      == "entidad",
+            models.UserTenant.activo     == 1,
+        )
+        .first()
+    )
+    if tenant:
+        brand_ent = db.query(models.CorporateEntity).filter(
+            models.CorporateEntity.code   == brand_id,
+            models.CorporateEntity.tipo   == "Marca",
+            models.CorporateEntity.activo == 1,
+        ).first()
+        entity_ent = db.query(models.CorporateEntity).filter(
+            models.CorporateEntity.code   == company_id,
+            models.CorporateEntity.tipo   == "Entidad Legal",
+            models.CorporateEntity.activo == 1,
+        ).first()
+        if brand_ent and entity_ent and brand_ent.parent_id == entity_ent.id:
+            return tenant
+
+    # 3. Grupo level — verify brand → entity → group chain
+    grupo_tenants = (
+        db.query(models.UserTenant)
+        .filter(
+            models.UserTenant.user_id == user_id,
+            models.UserTenant.scope   == "grupo",
+            models.UserTenant.activo  == 1,
+        )
+        .all()
+    )
+    for tenant in grupo_tenants:
+        brand_ent = db.query(models.CorporateEntity).filter(
+            models.CorporateEntity.code   == brand_id,
+            models.CorporateEntity.tipo   == "Marca",
+            models.CorporateEntity.activo == 1,
+        ).first()
+        if not brand_ent:
+            continue
+        entity_ent = db.query(models.CorporateEntity).filter(
+            models.CorporateEntity.id     == brand_ent.parent_id,
+            models.CorporateEntity.tipo   == "Entidad Legal",
+            models.CorporateEntity.activo == 1,
+        ).first()
+        if not entity_ent:
+            continue
+        grupo_ent = db.query(models.CorporateEntity).filter(
+            models.CorporateEntity.id     == entity_ent.parent_id,
+            models.CorporateEntity.code   == tenant.company_id,
+            models.CorporateEntity.tipo   == "Grupo",
+            models.CorporateEntity.activo == 1,
+        ).first()
+        if grupo_ent:
+            return tenant
+
+    return None
+
+
+def resolve_first_accessible_brand(
+    db: Session, tenant: models.UserTenant
+) -> Optional[tuple]:
+    """For a grupo/entidad scope tenant, return (company_code, brand_code)
+    of the first active Marca under that scope's hierarchy."""
+    if tenant.scope == "entidad":
+        entity = db.query(models.CorporateEntity).filter(
+            models.CorporateEntity.code   == tenant.company_id,
+            models.CorporateEntity.tipo   == "Entidad Legal",
+            models.CorporateEntity.activo == 1,
+        ).first()
+        if not entity:
+            return None
+        brand = db.query(models.CorporateEntity).filter(
+            models.CorporateEntity.parent_id == entity.id,
+            models.CorporateEntity.tipo      == "Marca",
+            models.CorporateEntity.activo    == 1,
+        ).order_by(models.CorporateEntity.sort_order).first()
+        if brand:
+            return (tenant.company_id, brand.code)
+
+    elif tenant.scope == "grupo":
+        grupo = db.query(models.CorporateEntity).filter(
+            models.CorporateEntity.code   == tenant.company_id,
+            models.CorporateEntity.tipo   == "Grupo",
+            models.CorporateEntity.activo == 1,
+        ).first()
+        if not grupo:
+            return None
+        entity = db.query(models.CorporateEntity).filter(
+            models.CorporateEntity.parent_id == grupo.id,
+            models.CorporateEntity.tipo      == "Entidad Legal",
+            models.CorporateEntity.activo    == 1,
+        ).order_by(models.CorporateEntity.sort_order).first()
+        if not entity:
+            return None
+        brand = db.query(models.CorporateEntity).filter(
+            models.CorporateEntity.parent_id == entity.id,
+            models.CorporateEntity.tipo      == "Marca",
+            models.CorporateEntity.activo    == 1,
+        ).order_by(models.CorporateEntity.sort_order).first()
+        if brand:
+            return (entity.code, brand.code)
+
+    return None
 
 
 def add_user_tenant(
@@ -195,6 +315,7 @@ def add_user_tenant(
 ) -> models.UserTenant:
     obj = models.UserTenant(
         user_id    = user_id,
+        scope      = entry.scope,
         company_id = entry.company_id,
         brand_id   = entry.brand_id,
         role       = entry.role,

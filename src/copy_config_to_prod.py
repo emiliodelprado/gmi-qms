@@ -136,12 +136,10 @@ def transfer(src_url: str, tgt_url: str, dry_run: bool = False) -> None:
                 print(f"  ✓  {tname}: 0 filas (skip)")
                 continue
 
-            # Temporarily disable FK triggers so we can insert in ID order
-            # without worrying about self-referential constraints mid-batch.
-            tgt_db.execute(text("SET session_replication_role = replica"))
+            # Rows are already sorted by id (order_by(model.id) at read time),
+            # so parents always precede children — no need to bypass FK checks.
             for row_dict in dicts:
                 tgt_db.execute(model.__table__.insert().values(**row_dict))
-            tgt_db.execute(text("SET session_replication_role = DEFAULT"))
 
             # Advance the sequence so future inserts don't collide
             max_id = max(d["id"] for d in dicts)

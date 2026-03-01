@@ -37,8 +37,13 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> schemas
         tenant = crud.get_user_tenant_by_context(db, user.id, req_company, req_brand)
 
     # Fall back to first active tenant if no header or no match
+    # Priority: marca > entidad > grupo (most specific first)
     if not tenant:
-        active = [t for t in user.tenants if t.activo == 1]
+        scope_order = {"marca": 0, "entidad": 1, "grupo": 2}
+        active = sorted(
+            [t for t in user.tenants if t.activo == 1],
+            key=lambda t: scope_order.get(t.scope, 99),
+        )
         tenant = active[0] if active else None
 
     if not tenant:
@@ -47,14 +52,26 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> schemas
             detail="Sin acceso asignado a ninguna entidad. Contacta con el administrador.",
         )
 
+    # company_id/brand_id in UserInfo reflect the requested context (from headers).
+    # When falling back (no headers) and the tenant is grupo/entidad scope,
+    # resolve the first accessible Marca under that hierarchy.
+    resolved_company = req_company or tenant.company_id
+    resolved_brand   = req_brand   or tenant.brand_id
+
+    if not req_company and tenant.scope in ("grupo", "entidad"):
+        first = crud.resolve_first_accessible_brand(db, tenant)
+        if first:
+            resolved_company, resolved_brand = first
+
     return schemas.UserInfo(
         user_id    = payload["user_id"],
         email      = email,
         name       = payload.get("name", ""),
         roles      = payload.get("roles", []),
         role       = tenant.role,
-        company_id = tenant.company_id,
-        brand_id   = tenant.brand_id,
+        scope      = tenant.scope,
+        company_id = resolved_company,
+        brand_id   = resolved_brand,
     )
 
 

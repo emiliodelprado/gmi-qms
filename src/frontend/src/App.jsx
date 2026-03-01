@@ -12,6 +12,7 @@ import DashObjetivos  from "./pages/est/DashObjetivos.jsx";
 import ContDafo        from "./pages/est/ContDafo.jsx";
 import ContOrganigrama from "./pages/est/ContOrganigrama.jsx";
 import ContPartes      from "./pages/est/ContPartes.jsx";
+import ContPolitica    from "./pages/est/ContPolitica.jsx";
 import ContProcesos    from "./pages/est/ContProcesos.jsx";
 // RSG
 import EvalCalculadora from "./pages/rsg/EvalCalculadora.jsx";
@@ -248,6 +249,12 @@ const Layout = ({ user }) => {
   const [company,    setCompany]    = useState("GMS");
   const [brand,      setBrand]      = useState("EPUNTO");
   const [brandColor, setBrandColor] = useState(COLORS.sidebar);
+  const [mini,       setMini]       = useState(() => localStorage.getItem("qms_sidebar_mini") === "1");
+  const toggleMini = () => setMini(m => {
+    const next = !m;
+    localStorage.setItem("qms_sidebar_mini", next ? "1" : "0");
+    return next;
+  });
   const perms = usePermissions(user, company, brand);
 
   // Fetch brand color when company/brand selector changes
@@ -276,7 +283,7 @@ const Layout = ({ user }) => {
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
           <TopBar user={user} company={company} brand={brand} setCompany={setCompany} setBrand={setBrand} />
           <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-            <Sidebar user={user} brandColor={brandColor} />
+            <Sidebar user={user} brandColor={brandColor} mini={mini} onToggleMini={toggleMini} />
             <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
             <main style={{ flex: 1, padding: "28px 30px", overflow: "auto", background: COLORS.bg }}>
               <Routes>
@@ -288,6 +295,7 @@ const Layout = ({ user }) => {
                 <Route path="/est/cont/v-org"    element={<GuardedRoute screenId="v-org"    element={<ContOrganigrama />} />} />
                 <Route path="/est/cont/v-proc"   element={<GuardedRoute screenId="v-proc"   element={<ContProcesos />} />} />
                 <Route path="/est/cont/v-part"   element={<GuardedRoute screenId="v-part"   element={<ContPartes />} />} />
+                <Route path="/est/cont/v-pol"    element={<GuardedRoute screenId="v-pol"    element={<ContPolitica />} />} />
                 <Route path="/rsg/evar/v-calc"   element={<GuardedRoute screenId="v-calc"   element={<EvalCalculadora />} />} />
                 <Route path="/rsg/map/v-map9"    element={<GuardedRoute screenId="v-map9"   element={<MapISO9001 />} />} />
                 <Route path="/rsg/map/v-map27"   element={<GuardedRoute screenId="v-map27"  element={<MapISO27001 />} />} />

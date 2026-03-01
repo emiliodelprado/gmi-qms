@@ -10,6 +10,7 @@ const PAGE_TITLES = {
   "/est/cont/v-org":  "Organigrama",
   "/est/cont/v-proc": "Listado de Procesos",
   "/est/cont/v-part": "Partes Interesadas",
+  "/est/cont/v-pol":  "Política de Calidad",
   "/rsg/evar/v-calc":  "Calculadora de Riesgos",
   "/rsg/map/v-map9":   "Mapa ISO 9001",
   "/rsg/map/v-map27":  "Mapa ISO 27001",

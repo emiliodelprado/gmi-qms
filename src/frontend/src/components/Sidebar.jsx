@@ -16,7 +16,8 @@ const NAV_MODULES = [
         { id: "v-dafo", label: "Matriz DAFO/CAME",    path: "/est/cont/v-dafo" },
         { id: "v-org",  label: "Organigrama",         path: "/est/cont/v-org"  },
         { id: "v-proc", label: "Listado de Procesos", path: "/est/cont/v-proc" },
-        { id: "v-part", label: "Partes Interesadas", path: "/est/cont/v-part" },
+        { id: "v-part", label: "Partes Interesadas",  path: "/est/cont/v-part" },
+        { id: "v-pol",  label: "Política de Calidad", path: "/est/cont/v-pol"  },
       ]},
     ],
   },
@@ -134,12 +135,12 @@ function findModuleAndFnForPath(path) {
 }
 
 // ─── Sidebar component ────────────────────────────────────────────────────────
-export default function Sidebar({ user, brandColor }) {
+export default function Sidebar({ user, brandColor, mini, onToggleMini }) {
   const location = useLocation();
   const navigate  = useNavigate();
-  const [mini, setMini] = useState(() => localStorage.getItem("qms_sidebar_mini") === "1");
-  const [openMods, setOpenMods] = useState(new Set(["est"]));
-  const [openFns,  setOpenFns]  = useState(new Set(["dash"]));
+  const [openMods,       setOpenMods]       = useState(new Set(["est"]));
+  const [openFns,        setOpenFns]        = useState(new Set(["dash"]));
+  const [handleHovered,  setHandleHovered]  = useState(false);
 
   // Auto-expand current module/fn on route change
   useEffect(() => {
@@ -149,12 +150,6 @@ export default function Sidebar({ user, brandColor }) {
       setOpenFns(prev  => new Set([...prev, found.fnId]));
     }
   }, [location.pathname]);
-
-  const toggleMini = () => setMini(m => {
-    const next = !m;
-    localStorage.setItem("qms_sidebar_mini", next ? "1" : "0");
-    return next;
-  });
 
   const toggleMod = (id) => setOpenMods(prev => {
     const s = new Set(prev);
@@ -196,23 +191,11 @@ export default function Sidebar({ user, brandColor }) {
 
   return (
     <div style={{
+      position: "relative",
       width: mini ? 52 : 220, minHeight: "100vh",
       background: brandColor || COLORS.sidebar, display: "flex", flexDirection: "column",
       flexShrink: 0, transition: "width 0.2s ease", overflow: "hidden",
     }}>
-      {/* Collapse toggle — height matches TopBar (78px) */}
-      <div style={{ height: 78, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: mini ? "center" : "flex-end", padding: mini ? 0 : "0 10px", borderBottom: "1px solid rgba(255,255,255,0.15)" }}>
-        <button onClick={toggleMini} title={mini ? "Expandir" : "Colapsar"}
-          style={{ background: "none", border: "none", cursor: "pointer", padding: 4, borderRadius: 4, display: "flex", alignItems: "center", opacity: 0.45 }}
-          onMouseEnter={e => e.currentTarget.style.opacity = "1"}
-          onMouseLeave={e => e.currentTarget.style.opacity = "0.45"}>
-          <svg width={13} height={13} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            style={{ transform: mini ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-            <polyline points="15 18 9 12 15 6" />
-          </svg>
-        </button>
-      </div>
-
       {/* Main nav */}
       <nav style={{ flex: 1, padding: mini ? "10px 4px" : "10px 8px", overflowY: "auto", overflowX: "hidden" }}>
         {visibleModules.map(mod => {
@@ -331,6 +314,28 @@ export default function Sidebar({ user, brandColor }) {
         })}
       </nav>
 
+      {/* Resize handle — right edge toggle */}
+      <div
+        onClick={onToggleMini}
+        onMouseEnter={() => setHandleHovered(true)}
+        onMouseLeave={() => setHandleHovered(false)}
+        title={mini ? "Expandir menú" : "Colapsar menú"}
+        style={{
+          position: "absolute", right: 0, top: 0, bottom: 0, width: 8,
+          cursor: "col-resize", zIndex: 10,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}
+      >
+        <span style={{
+          display: "block",
+          width: handleHovered ? 3 : 1,
+          height: handleHovered ? "40%" : "100%",
+          background: handleHovered ? "rgba(255,255,255,0.65)" : "rgba(255,255,255,0.15)",
+          borderRadius: 2,
+          transition: "all 0.15s",
+          pointerEvents: "none",
+        }} />
+      </div>
     </div>
   );
 }

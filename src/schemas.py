@@ -1,6 +1,6 @@
 """Pydantic schemas – request & response shapes."""
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, validator
+from typing import Optional, List, Literal
 from datetime import datetime
 
 
@@ -11,6 +11,7 @@ class UserInfo(BaseModel):
     name:       str
     roles:      List[str]
     role:       Optional[str] = None   # QMS role (resolved for active tenant)
+    scope:      Optional[str] = None   # "grupo" | "entidad" | "marca"
     company_id: Optional[str] = None
     brand_id:   Optional[str] = None
 
@@ -44,11 +45,33 @@ class PasswordResetRequestResponse(BaseModel):
 
 # ── User Tenants ───────────────────────────────────────────────────────────────
 class UserTenantEntry(BaseModel):
-    """A single (company, brand, role) assignment — used in create/update."""
-    company_id: str
-    brand_id:   str
+    """A single role assignment with hierarchical scope.
+
+    scope='marca'   → company_id (Entidad) + brand_id (Marca) required
+    scope='entidad' → company_id (Entidad) required; brand_id must be None
+    scope='grupo'   → company_id (Grupo) required; brand_id must be None
+    """
+    scope:      str           = "marca"   # "grupo" | "entidad" | "marca"
+    company_id: Optional[str] = None
+    brand_id:   Optional[str] = None
     role:       str
     activo:     int = 1
+
+    @validator("company_id", always=True)
+    def _require_company(cls, v, values):
+        scope = values.get("scope", "marca")
+        if scope in ("entidad", "marca") and not v:
+            raise ValueError(f"company_id es obligatorio para scope '{scope}'")
+        return v
+
+    @validator("brand_id", always=True)
+    def _require_brand(cls, v, values):
+        scope = values.get("scope", "marca")
+        if scope == "marca" and not v:
+            raise ValueError("brand_id es obligatorio para scope 'marca'")
+        if scope in ("grupo", "entidad") and v:
+            raise ValueError(f"brand_id debe ser None para scope '{scope}'")
+        return v
 
 
 class UserTenantRead(UserTenantEntry):
@@ -126,12 +149,16 @@ class UIBrandSettingsUpsert(BaseModel):
 
 
 class CorporateEntityCreate(BaseModel):
-    tipo:       str
-    label:      str
-    code:       str
-    parent_id:  Optional[int] = None
-    activo:     int = 1
-    sort_order: int = 0
+    tipo:                str
+    label:               str
+    code:                str
+    parent_id:           Optional[int] = None
+    activo:              int = 1
+    sort_order:          int = 0
+    # Legal-entity specific (only relevant when tipo == "Entidad Legal")
+    denominacion_social: Optional[str] = None
+    domicilio_social:    Optional[str] = None
+    nif:                 Optional[str] = None
 
 
 class CorporateEntityRead(CorporateEntityCreate):

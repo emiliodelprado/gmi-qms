@@ -25,7 +25,13 @@ class UserAccess(Base):
 
 
 class UserTenant(Base):
-    """Per-(company_id, brand_id) role assignment for a user."""
+    """Per-scope role assignment for a user.
+
+    scope='marca'   → company_id=Entidad code, brand_id=Marca code
+    scope='entidad' → company_id=Entidad code, brand_id=NULL
+    scope='grupo'   → company_id=Grupo code,   brand_id=NULL
+    Unique indexes per scope are created in migration 006.
+    """
     __tablename__ = "user_tenants"
     __table_args__ = (
         UniqueConstraint("user_id", "company_id", "brand_id", name="uq_user_tenant"),
@@ -34,9 +40,10 @@ class UserTenant(Base):
     id         = Column(Integer, primary_key=True, index=True)
     user_id    = Column(Integer, ForeignKey("user_access.id", ondelete="CASCADE"),
                         nullable=False, index=True)
-    company_id = Column(String(10), nullable=False)   # GMS | GMP
-    brand_id   = Column(String(50), nullable=False)   # EPUNTO | LIQUID | THE LIQUID FINANCE
-    role       = Column(String(50), nullable=False)   # IT|Dirección|Calidad|…|Auditor
+    scope      = Column(String(15), nullable=False, server_default="marca")
+    company_id = Column(String(10), nullable=True)   # Grupo/Entidad/Entidad code
+    brand_id   = Column(String(50), nullable=True)   # Marca code; NULL for grupo/entidad scope
+    role       = Column(String(50), nullable=False)  # IT|Dirección|Calidad|…|Auditor
     activo     = Column(Integer, default=1)
     created_at = Column(DateTime, default=datetime.utcnow)
 
@@ -88,14 +95,18 @@ class CorporateEntity(Base):
     """Hierarchical corporate structure: Grupo → Entidad Legal → Marca."""
     __tablename__ = "corporate_entities"
 
-    id         = Column(Integer, primary_key=True, index=True)
-    tipo       = Column(String(20),  nullable=False)             # Grupo | Entidad Legal | Marca
-    label      = Column(String(200), nullable=False)             # Display name
-    code       = Column(String(20),  nullable=False)             # Short code, e.g. GMS
-    parent_id  = Column(Integer, ForeignKey("corporate_entities.id", ondelete="SET NULL"), nullable=True)
-    activo     = Column(Integer, default=1)
-    sort_order = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    id                  = Column(Integer, primary_key=True, index=True)
+    tipo                = Column(String(20),  nullable=False)             # Grupo | Entidad Legal | Marca
+    label               = Column(String(200), nullable=False)             # Display name
+    code                = Column(String(20),  nullable=False)             # Short code, e.g. GMS
+    parent_id           = Column(Integer, ForeignKey("corporate_entities.id", ondelete="SET NULL"), nullable=True)
+    activo              = Column(Integer, default=1)
+    sort_order          = Column(Integer, default=0)
+    created_at          = Column(DateTime, default=datetime.utcnow)
+    # Legal-entity specific fields (only relevant when tipo == "Entidad Legal")
+    denominacion_social = Column(String(300), nullable=True)
+    domicilio_social    = Column(String(500), nullable=True)
+    nif                 = Column(String(20),  nullable=True)
 
 
 class RolePermission(Base):

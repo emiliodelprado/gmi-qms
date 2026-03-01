@@ -2,10 +2,10 @@ import { COLORS, H, B } from "../constants.jsx";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 const RELEASE = {
-  version: "0.1.0",
-  date:    "28 febrero 2026",
-  title:   "Lanzamiento inicial",
-  summary: "Primera versión operativa del GMI Quality Management System. Incluye el frontend completo con 7 módulos y 29 pantallas, la arquitectura backend en FastAPI + PostgreSQL, autenticación dual (SSO SAML 2.0 y credenciales locales Argon2id) y modelo multi-tenant por empresa y marca.",
+  version: "0.2.0",
+  date:    "1 marzo 2026",
+  title:   "Estructura corporativa y administración",
+  summary: "Segunda versión del GMI Quality Management System. Incorpora la página de inicio de sesión local, la gestión completa de la Estructura Corporativa con árbol jerárquico editable, la personalización de UI con carga dinámica de entidades desde la estructura, y las herramientas de copia de configuración a producción.",
 };
 
 const SECTIONS = [
@@ -61,8 +61,8 @@ const SECTIONS = [
     subtitle: "FastAPI · PostgreSQL · Alembic",
     items: [
       { label: "FastAPI 0.115 + Uvicorn",          detail: "API REST con documentación automática en /api/docs (Swagger) y /api/redoc" },
-      { label: "PostgreSQL + SQLAlchemy 2.0",      detail: "ORM con modelos UserAccess, UserTenant, PasswordResetToken, AuditLog, RolePermission" },
-      { label: "Migraciones Alembic (3 versiones)", detail: "001 esquema base · 002 auth local y multitenancy · 003 tabla user_tenants (roles por tenant)" },
+      { label: "PostgreSQL + SQLAlchemy 2.0",      detail: "ORM con modelos UserAccess, UserTenant, PasswordResetToken, AuditLog, RolePermission, CorporateEntity, UIBrandSettings" },
+      { label: "Migraciones Alembic (5 versiones)", detail: "001 esquema base · 002 auth local · 003 user_tenants · 004 ui_brand_settings · 005 corporate_entities" },
       { label: "Audit log inmutable",              detail: "Todas las acciones de escritura quedan registradas con usuario, acción, entidad, tenant e IP" },
       { label: "CORS configurado",                 detail: "Orígenes permitidos: https://qms.gmiberia.com y http://localhost:3001. Cabeceras X-Tenant expuestas" },
     ],
@@ -94,6 +94,20 @@ const SECTIONS = [
       { label: "TopBar con dropdown de perfil",    detail: "Muestra nombre, email, rol y tenant activo leídos de /auth/me. Botón de cierre de sesión incluido" },
       { label: "CompanyContext global",            detail: "El selector de empresa y marca en TopBar actualiza el contexto en todos los componentes de la app" },
       { label: "Pantalla de inicio HomeModules",   detail: "Tarjetas de acceso rápido a los 7 módulos con descripción y conteo de pantallas" },
+    ],
+  },
+  {
+    icon: "🏗️",
+    color: "#00695C",
+    bg:    "#E0F2F1",
+    title: "Novedades v0.2.0",
+    subtitle: "Estructura corporativa · Login local · Copia a producción",
+    items: [
+      { label: "Estructura Corporativa editable",      detail: "Árbol jerárquico con Grupo, Entidades Legales y Marcas. CRUD completo con modal de edición y confirmación de borrado" },
+      { label: "Página de inicio de sesión local",     detail: "Login.jsx sustituye la redirección automática a SAML. Permite autenticarse con credenciales locales sin configurar el IdP" },
+      { label: "Personalización UI dinámica",          detail: "El selector de empresa y marca en ADM·UI se carga desde la estructura corporativa en lugar de una lista hardcodeada" },
+      { label: "copy_config_to_prod.py + .sh",         detail: "Scripts para copiar tablas de configuración (corporate_entities, ui_brand_settings, role_permissions) de local a producción via Cloud SQL Proxy" },
+      { label: "Fix race condition en AdmUI",          detail: "Patrón cancelled flag en useEffect evita que respuestas tardías sobreescriban el estado de una entidad más reciente" },
     ],
   },
   {
@@ -180,7 +194,7 @@ export default function Novedades() {
 
       {/* Footer note */}
       <div style={{ marginTop: 24, padding: "14px 20px", background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 8, fontSize: 12, color: "#92400E", fontFamily: B }}>
-        <strong>Próximas versiones:</strong> login page para auth local, conexión del frontend de Roles y Auditoría al backend, pantallas pendientes de implementación de contenido real.
+        <strong>Próximas versiones:</strong> conexión del frontend de Roles y Auditoría al backend, pantallas pendientes de implementación de contenido real, configuración del IdP OneLogin para SSO SAML 2.0.
       </div>
     </div>
   );

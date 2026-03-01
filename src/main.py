@@ -125,7 +125,7 @@ def dev_users(db: Session = Depends(get_db)):
             "email": u.email,
             "name": u.name or u.email,
             "tenants": [
-                {"company_id": t.company_id, "brand_id": t.brand_id, "role": t.role}
+                {"scope": t.scope, "company_id": t.company_id, "brand_id": t.brand_id, "role": t.role}
                 for t in u.tenants if t.activo == 1
             ],
         }
@@ -272,7 +272,7 @@ def create_user(
         obj = crud.create_user_access(db, payload)
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Ya existe un usuario con ese email, o hay accesos duplicados (empresa·marca).")
+        raise HTTPException(status_code=400, detail="Ya existe un usuario con ese email, o hay accesos duplicados (misma empresa·marca, empresa o grupo).")
     crud.write_audit(db, user.email, "USER_CREATE", payload.email,
                      company_id=user.company_id, brand_id=user.brand_id,
                      ip_address=_client_ip(request))
@@ -295,7 +295,7 @@ def update_user(
         obj = crud.update_user_access(db, uid, payload)
     except IntegrityError:
         db.rollback()
-        raise HTTPException(status_code=400, detail="Hay accesos duplicados: la combinación empresa·marca debe ser única por usuario.")
+        raise HTTPException(status_code=400, detail="Hay accesos duplicados: la combinación de scope + empresa/marca debe ser única por usuario.")
     if not obj:
         raise HTTPException(status_code=404, detail="User not found")
     crud.write_audit(db, user.email, "EDIT", f"user:{payload.email}",
@@ -366,8 +366,11 @@ def add_tenant(
 ):
     ensure_tables()
     obj = crud.add_user_tenant(db, uid, payload)
+    scope_label = f"{payload.scope}:{payload.company_id}"
+    if payload.brand_id:
+        scope_label += f"·{payload.brand_id}"
     crud.write_audit(db, user.email, "TENANT_ADD",
-                     f"user:{uid} {payload.company_id}·{payload.brand_id}={payload.role}",
+                     f"user:{uid} {scope_label}={payload.role}",
                      ip_address=_client_ip(request))
     return obj
 

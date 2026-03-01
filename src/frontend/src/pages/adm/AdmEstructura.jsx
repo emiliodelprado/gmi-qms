@@ -25,7 +25,7 @@ function buildTree(flat) {
   return roots;
 }
 
-const BLANK = { tipo: "Marca", label: "", code: "", parent_id: null, activo: 1, sort_order: 0 };
+const BLANK = { tipo: "Marca", label: "", code: "", parent_id: null, activo: 1, sort_order: 0, denominacion_social: "", domicilio_social: "", nif: "" };
 
 const labelStyle = {
   fontSize: 10, fontWeight: 800, color: COLORS.grayLight,
@@ -126,6 +126,45 @@ function EntityModal({ initial, allEntities, onClose, onSaved }) {
             maxLength={20}
           />
         </div>
+
+        {/* Legal-entity specific fields */}
+        {form.tipo === "Entidad Legal" && (
+          <>
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Denominación social</label>
+              <input
+                type="text"
+                value={form.denominacion_social ?? ""}
+                onChange={e => set("denominacion_social", e.target.value)}
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+                placeholder="Ej. Global Manager Spain S.L."
+              />
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>Domicilio social</label>
+              <input
+                type="text"
+                value={form.domicilio_social ?? ""}
+                onChange={e => set("domicilio_social", e.target.value)}
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box" }}
+                placeholder="Ej. Calle Gran Vía, 28, 28013 Madrid"
+              />
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={labelStyle}>NIF</label>
+              <input
+                type="text"
+                value={form.nif ?? ""}
+                onChange={e => set("nif", e.target.value.toUpperCase())}
+                style={{ ...inputStyle, width: "100%", boxSizing: "border-box", fontFamily: "monospace" }}
+                placeholder="Ej. B12345678"
+                maxLength={20}
+              />
+            </div>
+          </>
+        )}
 
         {/* Entidad padre */}
         <div style={{ marginBottom: 14 }}>
