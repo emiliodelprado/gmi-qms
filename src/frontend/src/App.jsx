@@ -45,6 +45,7 @@ import AdmLog             from "./pages/adm/AdmLog.jsx";
 import AdmAuth            from "./pages/adm/AdmAuth.jsx";
 import AdmUI              from "./pages/adm/AdmUI.jsx";
 import Novedades          from "./pages/Novedades.jsx";
+import Login              from "./pages/Login.jsx";
 import { PermissionsContext } from "./contexts.jsx";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
@@ -312,8 +313,14 @@ export default function App() {
   );
 
   if (!user) {
-    if (window.location.pathname !== "/auth/login") window.location.href = "/auth/login";
-    return null;
+    return (
+      <BrowserRouter>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="*" element={<Navigate to="/login" replace />} />
+        </Routes>
+      </BrowserRouter>
+    );
   }
 
   return (
