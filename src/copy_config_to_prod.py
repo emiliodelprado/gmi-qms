@@ -1,13 +1,16 @@
 """
 copy_config_to_prod.py — Copia tablas de configuración de la BD local a producción.
 
-Tablas copiadas (configuración, sin datos sensibles):
+Tablas copiadas (configuración visual/estructural):
   - corporate_entities   → estructura corporativa
   - ui_brand_settings    → logos y colores de marca
-  - role_permissions     → matriz de permisos por rol
 
-Tablas NO copiadas (datos de seguridad/sesión):
-  - user_access, user_tenants, password_reset_tokens, audit_log
+Tablas NO copiadas (se gestionan directamente en producción):
+  - role_permissions     → matriz de permisos por rol
+  - user_access          → usuarios y contraseñas
+  - user_tenants         → asignaciones de tenant/rol
+  - password_reset_tokens
+  - audit_log            → registro de actividad
 
 ──────────────────────────────────────────────────────────────────────────────
 INSTRUCCIONES DE USO
@@ -86,10 +89,11 @@ def _build_target_url() -> str:
 
 # ── Tables to copy, in insertion order ───────────────────────────────────────
 # corporate_entities must be first (self-referential FK, insert by id order)
+# NOTE: role_permissions, user_access, user_tenants and audit_log are
+#       intentionally excluded — they are managed directly in production.
 COPY_PLAN = [
     models.CorporateEntity,
     models.UIBrandSettings,
-    models.RolePermission,
 ]
 
 

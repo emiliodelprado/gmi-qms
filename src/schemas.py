@@ -122,6 +122,39 @@ class UserAccessRead(BaseModel):
         from_attributes = True
 
 
+# ── Quality policy ────────────────────────────────────────────────────────────
+class QualityPolicyUpsert(BaseModel):
+    company_id:  str
+    brand_id:    Optional[str] = ""
+    version:     Optional[str] = None
+    fecha:       Optional[str] = None   # ISO date string "YYYY-MM-DD"
+    proxima:     Optional[str] = None
+    responsable: Optional[str] = None
+    cargo:       Optional[str] = None
+    contenido:   Optional[str] = None
+
+
+class QualityPolicyRead(BaseModel):
+    company_id:  str
+    brand_id:    str
+    version:     Optional[str] = None
+    fecha:       Optional[str] = None
+    proxima:     Optional[str] = None
+    responsable: Optional[str] = None
+    cargo:       Optional[str] = None
+    contenido:   Optional[str] = None
+    updated_at:  Optional[datetime] = None
+    updated_by:  Optional[str] = None
+    # True when the brand has no own policy and the entity-level one is shown
+    is_inherited: bool = False
+    # Legal entity fields for the PDF footer
+    denominacion_social: Optional[str] = None
+    domicilio_social:    Optional[str] = None
+    nif:                 Optional[str] = None
+    # Brand/entity logo for the PDF header (base64 data URL from UIBrandSettings)
+    brand_logo:  Optional[str] = None
+
+
 # ── Audit log ─────────────────────────────────────────────────────────────────
 class AuditLogEntry(BaseModel):
     id:         int

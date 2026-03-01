@@ -112,6 +112,31 @@ class CorporateEntity(Base):
     nif                 = Column(String(20),  nullable=True)
 
 
+class QualityPolicy(Base):
+    """Quality policy document, stored per (company, brand) context.
+
+    brand_id="" means entity-level policy (Entidad Legal).
+    Brand-level policies override the entity-level one; if a brand has no
+    policy (or empty contenido) the entity-level policy is used as fallback.
+    """
+    __tablename__ = "quality_policies"
+    __table_args__ = (
+        UniqueConstraint("company_id", "brand_id", name="uq_quality_policy"),
+    )
+
+    id          = Column(Integer, primary_key=True, index=True)
+    company_id  = Column(String(10),  nullable=False)
+    brand_id    = Column(String(50),  nullable=False, server_default="")  # "" = entity-level
+    version     = Column(String(20),  nullable=True)
+    fecha       = Column(String(10),  nullable=True)   # ISO date string
+    proxima     = Column(String(10),  nullable=True)   # ISO date string
+    responsable = Column(String(200), nullable=True)
+    cargo       = Column(String(200), nullable=True)
+    contenido   = Column(Text,        nullable=True)
+    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_by  = Column(String(200), nullable=True)
+
+
 class RolePermission(Base):
     """Per-role, per-screen permission overrides (persisted matrix)."""
     __tablename__ = "role_permissions"

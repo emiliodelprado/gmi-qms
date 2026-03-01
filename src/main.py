@@ -248,6 +248,34 @@ def password_reset_confirm(
     return {"ok": True, "message": "Contraseña actualizada correctamente"}
 
 
+# ── EST – Quality policy ────────────────────────────────────────────────────────
+@app.get("/api/est/quality-policy", response_model=schemas.QualityPolicyRead)
+def get_quality_policy(
+    company_id: str           = Query(...),
+    brand_id:   str           = Query(""),
+    db:         Session       = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    ensure_tables()
+    return crud.get_quality_policy(db, company_id, brand_id)
+
+
+@app.put("/api/est/quality-policy")
+def upsert_quality_policy(
+    payload: schemas.QualityPolicyUpsert,
+    db:      Session       = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    crud.upsert_quality_policy(db, payload, user.email)
+    crud.write_audit(
+        db, user.email, "EDIT",
+        f"quality_policy:{payload.company_id}:{payload.brand_id or ''}",
+        company_id=user.company_id, brand_id=user.brand_id,
+    )
+    return {"ok": True}
+
+
 # ── ADMIN – User management ─────────────────────────────────────────────────────
 @app.get("/api/adm/users", response_model=List[schemas.UserAccessRead])
 def list_users(
@@ -415,12 +443,65 @@ def remove_tenant(
 def get_audit_log(
     company_id: Optional[str] = Query(None),
     brand_id:   Optional[str] = Query(None),
-    limit:      int            = Query(200, ge=1, le=1000),
+    user_email: Optional[str] = Query(None),
+    action:     Optional[str] = Query(None),
+    date_from:  Optional[str] = Query(None),   # YYYY-MM-DD
+    date_to:    Optional[str] = Query(None),   # YYYY-MM-DD
+    limit:      int            = Query(500, ge=1, le=2000),
     db:         Session        = Depends(get_db),
     user=Depends(require_admin),
 ):
     ensure_tables()
-    return crud.get_audit_log(db, company_id=company_id, brand_id=brand_id, limit=limit)
+    return crud.get_audit_log(
+        db,
+        company_id=company_id, brand_id=brand_id,
+        user_email=user_email, action=action,
+        date_from=date_from, date_to=date_to,
+        limit=limit,
+    )
+
+
+@app.get("/api/adm/audit-log/csv")
+def export_audit_log_csv(
+    company_id: Optional[str] = Query(None),
+    brand_id:   Optional[str] = Query(None),
+    user_email: Optional[str] = Query(None),
+    action:     Optional[str] = Query(None),
+    date_from:  Optional[str] = Query(None),
+    date_to:    Optional[str] = Query(None),
+    db:         Session        = Depends(get_db),
+    user=Depends(require_admin),
+):
+    """Export audit log as CSV (ISO 27001 evidence)."""
+    import csv, io
+    from fastapi.responses import StreamingResponse
+
+    ensure_tables()
+    rows = crud.get_audit_log(
+        db,
+        company_id=company_id, brand_id=brand_id,
+        user_email=user_email, action=action,
+        date_from=date_from, date_to=date_to,
+        limit=10000,
+    )
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["timestamp", "user_email", "action", "entity", "company_id", "brand_id", "ip_address"])
+    for r in rows:
+        writer.writerow([
+            r.timestamp.isoformat() if r.timestamp else "",
+            r.user_email, r.action, r.entity or "",
+            r.company_id or "", r.brand_id or "", r.ip_address or "",
+        ])
+
+    buf.seek(0)
+    filename = f"audit_log_{date_from or 'all'}_{date_to or 'all'}.csv"
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── ROLE PERMISSIONS ─────────────────────────────────────────────────────────────

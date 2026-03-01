@@ -465,6 +465,10 @@ def get_audit_log(
     db:         Session,
     company_id: Optional[str] = None,
     brand_id:   Optional[str] = None,
+    user_email: Optional[str] = None,
+    action:     Optional[str] = None,
+    date_from:  Optional[str] = None,   # ISO date string YYYY-MM-DD
+    date_to:    Optional[str] = None,   # ISO date string YYYY-MM-DD
     limit:      int = 200,
 ) -> List[models.AuditLog]:
     q = db.query(models.AuditLog)
@@ -472,6 +476,14 @@ def get_audit_log(
         q = q.filter(models.AuditLog.company_id == company_id)
     if brand_id:
         q = q.filter(models.AuditLog.brand_id == brand_id)
+    if user_email:
+        q = q.filter(models.AuditLog.user_email.ilike(f"%{user_email}%"))
+    if action:
+        q = q.filter(models.AuditLog.action == action)
+    if date_from:
+        q = q.filter(models.AuditLog.timestamp >= datetime.fromisoformat(date_from))
+    if date_to:
+        q = q.filter(models.AuditLog.timestamp < datetime.fromisoformat(date_to) + timedelta(days=1))
     return q.order_by(desc(models.AuditLog.timestamp)).limit(limit).all()
 
 
@@ -630,3 +642,114 @@ def save_role_permissions(
             ))
     db.commit()
     return get_role_permissions(db)
+
+
+# ── Quality policy ──────────────────────────────────────────────────────────────
+def get_quality_policy(
+    db: Session, company_id: str, brand_id: str
+) -> schemas.QualityPolicyRead:
+    """Return the policy for the given context.
+
+    Fallback chain (brand_id provided):
+      1. Brand-level record with non-empty contenido → is_inherited=False
+      2. Entity-level record (brand_id="")           → is_inherited=True
+
+    Also attaches legal-entity footer data and brand logo for the PDF.
+    """
+    is_inherited = False
+    pol: Optional[models.QualityPolicy] = None
+
+    if brand_id:
+        pol = (
+            db.query(models.QualityPolicy)
+            .filter_by(company_id=company_id, brand_id=brand_id)
+            .first()
+        )
+        if not pol or not pol.contenido:
+            is_inherited = True
+            pol = (
+                db.query(models.QualityPolicy)
+                .filter_by(company_id=company_id, brand_id="")
+                .first()
+            )
+    else:
+        pol = (
+            db.query(models.QualityPolicy)
+            .filter_by(company_id=company_id, brand_id="")
+            .first()
+        )
+
+    # Legal entity for PDF footer
+    entity = (
+        db.query(models.CorporateEntity)
+        .filter_by(tipo="Entidad Legal", code=company_id)
+        .first()
+    )
+
+    # Brand logo: try brand-specific first, then entity-wide
+    logo = (
+        db.query(models.UIBrandSettings)
+        .filter_by(company_id=company_id, brand_id=brand_id)
+        .first()
+    )
+    if not logo:
+        logo = (
+            db.query(models.UIBrandSettings)
+            .filter_by(company_id=company_id, brand_id="")
+            .first()
+        )
+
+    return schemas.QualityPolicyRead(
+        company_id           = company_id,
+        brand_id             = brand_id,
+        version              = pol.version     if pol else None,
+        fecha                = pol.fecha       if pol else None,
+        proxima              = pol.proxima     if pol else None,
+        responsable          = pol.responsable if pol else None,
+        cargo                = pol.cargo       if pol else None,
+        contenido            = pol.contenido   if pol else None,
+        updated_at           = pol.updated_at  if pol else None,
+        updated_by           = pol.updated_by  if pol else None,
+        is_inherited         = is_inherited,
+        denominacion_social  = entity.denominacion_social if entity else None,
+        domicilio_social     = entity.domicilio_social    if entity else None,
+        nif                  = entity.nif                 if entity else None,
+        brand_logo           = logo.logo_data             if logo   else None,
+    )
+
+
+def upsert_quality_policy(
+    db: Session, payload: schemas.QualityPolicyUpsert, user_email: str
+) -> models.QualityPolicy:
+    """Create or update the quality policy for the given (company, brand) context."""
+    brand = payload.brand_id or ""
+    pol = (
+        db.query(models.QualityPolicy)
+        .filter_by(company_id=payload.company_id, brand_id=brand)
+        .first()
+    )
+    if pol:
+        pol.version     = payload.version
+        pol.fecha       = payload.fecha
+        pol.proxima     = payload.proxima
+        pol.responsable = payload.responsable
+        pol.cargo       = payload.cargo
+        pol.contenido   = payload.contenido
+        pol.updated_by  = user_email
+        pol.updated_at  = datetime.utcnow()
+    else:
+        pol = models.QualityPolicy(
+            company_id  = payload.company_id,
+            brand_id    = brand,
+            version     = payload.version,
+            fecha       = payload.fecha,
+            proxima     = payload.proxima,
+            responsable = payload.responsable,
+            cargo       = payload.cargo,
+            contenido   = payload.contenido,
+            updated_by  = user_email,
+        )
+        db.add(pol)
+    db.commit()
+    db.refresh(pol)
+    return pol

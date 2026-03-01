@@ -2,6 +2,159 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { COLORS, H, B, getInitials, ROLE_LABELS } from "../constants.jsx";
 
+// ─── Screen search index (excludes non-module pages) ─────────────────────────
+const SEARCH_EXCLUDE = new Set(["/home", "/admin/usuarios", "/perfil", "/novedades"]);
+const SEARCH_INDEX = Object.entries({
+  "/est/dash/v-exe":  "Vista Ejecutiva",
+  "/est/dash/v-obj":  "Estado de Objetivos",
+  "/est/cont/v-dafo": "Matriz DAFO / CAME",
+  "/est/cont/v-org":  "Organigrama",
+  "/est/cont/v-proc": "Listado de Procesos",
+  "/est/cont/v-part": "Partes Interesadas",
+  "/est/cont/v-pol":  "Política de Calidad",
+  "/rsg/evar/v-calc": "Calculadora de Riesgos",
+  "/rsg/map/v-map9":  "Mapa ISO 9001",
+  "/rsg/map/v-map27": "Mapa ISO 27001",
+  "/rsg/trat/v-plan": "Plan de Acciones",
+  "/ope/com/v-oft":   "Master de Ofertas",
+  "/ope/prj/v-ent":   "Seguimiento de Entregables",
+  "/tal/emp/v-perf":  "Ficha Colaborador",
+  "/tal/for/v-for":   "Gestión de Formación",
+  "/tal/onb/v-chck":  "Checklist de Bienvenida",
+  "/sop/doc/v-maes":  "Listado Maestro de Documentos",
+  "/sop/prov/v-prov": "Homologación y Evaluación de Proveedores",
+  "/sop/act/v-dig":   "Inventario de Activos Digitales",
+  "/sop/equ/v-equ":   "Gestión de Equipamiento",
+  "/mej/aud/v-aud":   "Planificación de Auditorías",
+  "/mej/nc/v-nc":     "Gestión de No Conformidades",
+  "/mej/eti/v-canal": "Canal de Denuncias",
+  "/adm/org/v-estr":     "Estructura Corporativa",
+  "/adm/proc/v-edproc":  "Editor de Procesos",
+  "/adm/acc/v-user":     "Gestión de Usuarios",
+  "/adm/acc/v-roles":    "Matriz de Roles y Permisos",
+  "/adm/acc/v-log":      "Registro de Actividad",
+  "/adm/sec/v-auth":     "Métodos de Autenticación",
+  "/adm/ui/v-ui":        "Personalización de Interfaz",
+}).filter(([path]) => !SEARCH_EXCLUDE.has(path))
+  .map(([path, title]) => ({ path, title }));
+
+// ─── ScreenSearch component ────────────────────────────────────────────────────
+function ScreenSearch() {
+  const navigate = useNavigate();
+  const [query,   setQuery]   = useState("");
+  const [showDrop, setShowDrop] = useState(false);
+  const wrapRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const results = query.trim().length === 0 ? [] : SEARCH_INDEX.filter(s =>
+    s.title.toLowerCase().includes(query.toLowerCase())
+  );
+
+  // Close on outside click
+  useEffect(() => {
+    if (!showDrop) return;
+    const handler = e => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setShowDrop(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [showDrop]);
+
+  const handleSelect = (path) => {
+    setQuery("");
+    setShowDrop(false);
+    navigate(path);
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Escape") { setQuery(""); setShowDrop(false); }
+  };
+
+  return (
+    <div ref={wrapRef} style={{ position: "relative" }}>
+      {/* Input */}
+      <div style={{
+        display: "flex", alignItems: "center", gap: 7,
+        border: `1px solid ${showDrop && results.length ? COLORS.red : COLORS.border}`,
+        borderRadius: 8, padding: "5px 10px",
+        background: "#fff", transition: "border-color 0.15s",
+        width: 220,
+      }}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+          stroke={COLORS.grayLight} strokeWidth="2.2" strokeLinecap="round">
+          <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
+        </svg>
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Buscar pantalla…"
+          value={query}
+          onChange={e => { setQuery(e.target.value); setShowDrop(true); }}
+          onFocus={() => { if (query) setShowDrop(true); }}
+          onKeyDown={handleKeyDown}
+          style={{
+            border: "none", outline: "none", fontSize: 12, fontFamily: B,
+            color: COLORS.gray, background: "transparent", width: "100%",
+          }}
+        />
+        {query && (
+          <button
+            onClick={() => { setQuery(""); setShowDrop(false); inputRef.current?.focus(); }}
+            style={{ border: "none", background: "none", cursor: "pointer", padding: 0, lineHeight: 1, color: COLORS.grayLight }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        )}
+      </div>
+
+      {/* Dropdown */}
+      {showDrop && query.trim().length > 0 && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0,
+          width: 300, background: "#fff",
+          border: `1px solid ${COLORS.border}`, borderRadius: 10,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.11)",
+          zIndex: 300, overflow: "hidden",
+        }}>
+          {results.length === 0 ? (
+            <div style={{ padding: "12px 14px", fontSize: 12, color: COLORS.grayLight, fontFamily: B }}>
+              Sin resultados para «{query}»
+            </div>
+          ) : results.map((s, i) => (
+            <button
+              key={s.path}
+              onClick={() => handleSelect(s.path)}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                width: "100%", padding: "9px 14px", border: "none",
+                background: "none", cursor: "pointer", textAlign: "left",
+                borderBottom: i < results.length - 1 ? `1px solid ${COLORS.border}` : "none",
+              }}
+              onMouseEnter={e => e.currentTarget.style.background = "#FAFAFA"}
+              onMouseLeave={e => e.currentTarget.style.background = "none"}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke={COLORS.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: COLORS.gray, fontFamily: H }}>
+                  {s.title}
+                </div>
+                <div style={{ fontSize: 10, color: COLORS.grayLight, fontFamily: "monospace", marginTop: 1 }}>
+                  {s.path}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const PAGE_TITLES = {
   "/home":            "Inicio",
   "/est/dash/v-exe":  "Vista Ejecutiva",
@@ -175,7 +328,9 @@ export default function TopBar({ user, company, brand, setCompany, setBrand }) {
         )}
       </div>
 
-      {/* Right: user button + dropdown */}
+      {/* Right: search + user button + dropdown */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      <ScreenSearch />
       <div style={{ position: "relative" }} ref={dropRef}>
         <button
           onClick={() => setOpen(o => !o)}
@@ -266,6 +421,7 @@ export default function TopBar({ user, company, brand, setCompany, setBrand }) {
             </div>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

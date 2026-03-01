@@ -2,10 +2,10 @@ import { COLORS, H, B } from "../constants.jsx";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 const RELEASE = {
-  version: "0.2.0",
+  version: "0.3.0",
   date:    "1 marzo 2026",
-  title:   "Estructura corporativa y administración",
-  summary: "Segunda versión del GMI Quality Management System. Incorpora la página de inicio de sesión local, la gestión completa de la Estructura Corporativa con árbol jerárquico editable, la personalización de UI con carga dinámica de entidades desde la estructura, y las herramientas de copia de configuración a producción.",
+  title:   "Administración operativa completa",
+  summary: "Tercera versión del GMI Quality Management System. Consolida la capa de administración conectando al backend real la Matriz de Roles y Permisos y el Registro de Actividad, añade la Política de Calidad al catálogo de pantallas, incorpora un buscador global de pantallas en la cabecera y corrige múltiples errores en la gestión multi-tenant y en la aplicación del branding por entidad.",
 };
 
 const SECTIONS = [
@@ -14,9 +14,9 @@ const SECTIONS = [
     color: "#1565C0",
     bg:    "#E3F2FD",
     title: "Módulos y pantallas",
-    subtitle: "7 módulos · 29 pantallas",
+    subtitle: "7 módulos · 30 pantallas",
     items: [
-      { label: "EST – Estrategia",     detail: "Vista Ejecutiva, Estado de Objetivos, Matriz DAFO/CAME, Organigrama, Listado de Procesos, Partes Interesadas" },
+      { label: "EST – Estrategia",     detail: "Vista Ejecutiva, Estado de Objetivos, Matriz DAFO/CAME, Organigrama, Listado de Procesos, Partes Interesadas, Política de Calidad" },
       { label: "RSG – Riesgos",        detail: "Calculadora de Riesgos, Mapa ISO 9001, Mapa ISO 27001, Plan de Acciones" },
       { label: "OPE – Operaciones",    detail: "Master de Ofertas, Seguimiento de Entregables" },
       { label: "TAL – Talento",        detail: "Ficha Colaborador, Gestión de Formación, Checklist de Bienvenida" },
@@ -62,7 +62,7 @@ const SECTIONS = [
     items: [
       { label: "FastAPI 0.115 + Uvicorn",          detail: "API REST con documentación automática en /api/docs (Swagger) y /api/redoc" },
       { label: "PostgreSQL + SQLAlchemy 2.0",      detail: "ORM con modelos UserAccess, UserTenant, PasswordResetToken, AuditLog, RolePermission, CorporateEntity, UIBrandSettings" },
-      { label: "Migraciones Alembic (5 versiones)", detail: "001 esquema base · 002 auth local · 003 user_tenants · 004 ui_brand_settings · 005 corporate_entities" },
+      { label: "Migraciones Alembic (9 versiones)", detail: "001 esquema base · 002 auth local · 003 user_tenants · 004 ui_brand_settings · 005 corporate_entities · 006 scope jerárquico · 007 campos legales · 008 default_tenant · 009 company_id nullable" },
       { label: "Audit log inmutable",              detail: "Todas las acciones de escritura quedan registradas con usuario, acción, entidad, tenant e IP" },
       { label: "CORS configurado",                 detail: "Orígenes permitidos: https://qms.gmiberia.com y http://localhost:3001. Cabeceras X-Tenant expuestas" },
     ],
@@ -111,6 +111,25 @@ const SECTIONS = [
     ],
   },
   {
+    icon: "🚀",
+    color: COLORS.red,
+    bg:    "#FFEBEE",
+    title: "Novedades v0.3.0",
+    subtitle: "Administración operativa · Roles · Audit · Buscador · Fixes multi-tenant",
+    items: [
+      { label: "Matriz de Roles conectada al backend",   detail: "AdmRoles carga desde GET /api/adm/role-permissions y guarda con PUT. Si la DB está vacía usa los permisos por defecto. Incluye la nueva pantalla Política de Calidad (v-pol, 30 pantallas en total)" },
+      { label: "Registro de Actividad con datos reales", detail: "AdmLog sustituye los datos mock por llamadas reales a /api/adm/audit-log. Filtros por usuario, acción y rango de fechas. Exportación CSV para evidencias ISO 27001 (hasta 10 000 filas)" },
+      { label: "Nuevos filtros en el endpoint de audit", detail: "GET /api/adm/audit-log acepta user_email (ilike), action (exacto), date_from y date_to. Límite ampliado a 2 000 registros. Nuevo endpoint GET /api/adm/audit-log/csv" },
+      { label: "Buscador global de pantallas",           detail: "Input siempre visible en el TopBar (derecha, izquierda del usuario). Búsqueda en tiempo real sobre los 30 títulos de pantalla. Dropdown con navegación directa y ruta monospace. Escape y clic fuera para cerrar" },
+      { label: "Botón SSO en login de producción",       detail: "ProdLogin muestra formulario email/contraseña + botón 'Acceder con OneLogin (SSO)' con icono de escudo. El DEV MODE sigue mostrando la lista de usuarios de prueba" },
+      { label: "Fix campos legales en Estructura",       detail: "denominacion_social, domicilio_social y nif no se guardaban: faltaban en los constructores de create_corporate_entity y update_corporate_entity en crud.py" },
+      { label: "Fix default_company_id incorrecto",      detail: "El admin creaba un usuario en el contexto GMS y el nuevo usuario recibía default_company_id='GMS' aunque solo tuviese permisos en GMP. Corregido en auth.py (validación contra tenants reales) y en AdmUsers (toApi y openEdit)" },
+      { label: "Fix branding para usuarios de entidad",  detail: "get_ui_brand_settings añade fallback a (company_id, '') cuando no existe configuración específica de marca. Los usuarios con scope=entidad reciben ahora la personalización global de su empresa" },
+      { label: "Fix usuarios de grupo visibles con filtro", detail: "La consulta get_user_access_list usaba AND exacto para company_id. Sustituido por OR jerárquico: grupo siempre ∪ entidad si coincide empresa ∪ marca si coincide empresa y marca" },
+      { label: "Migración 009 — company_id nullable",    detail: "La columna user_tenants.company_id era NOT NULL, imposibilitando scope=grupo. La migración 009 la hace nullable y recrea el índice uq_ut_grupo sobre (user_id) en vez de (user_id, company_id) para evitar semántica NULL" },
+    ],
+  },
+  {
     icon: "🛠️",
     color: "#555",
     bg:    "#F5F5F5",
@@ -155,7 +174,7 @@ export default function Novedades() {
           <div style={{ textAlign: "right", flexShrink: 0 }}>
             <div style={{ fontSize: 11, color: COLORS.grayLight, fontFamily: B }}>{RELEASE.date}</div>
             <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              {["7 módulos", "29 pantallas", "FastAPI", "PostgreSQL", "Argon2id", "Multi-tenant"].map(t => (
+              {["7 módulos", "30 pantallas", "FastAPI", "PostgreSQL", "Argon2id", "Multi-tenant"].map(t => (
                 <Tag key={t} label={t} bg="#F5F5F5" color={COLORS.grayLight} />
               ))}
             </div>
@@ -194,7 +213,7 @@ export default function Novedades() {
 
       {/* Footer note */}
       <div style={{ marginTop: 24, padding: "14px 20px", background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 8, fontSize: 12, color: "#92400E", fontFamily: B }}>
-        <strong>Próximas versiones:</strong> conexión del frontend de Roles y Auditoría al backend, pantallas pendientes de implementación de contenido real, configuración del IdP OneLogin para SSO SAML 2.0.
+        <strong>Próximas versiones:</strong> implementación de contenido real en pantallas pendientes (RSG, OPE, TAL, SOP, MEJ), configuración del IdP OneLogin para SSO SAML 2.0, notificaciones y alertas en tiempo real.
       </div>
     </div>
   );

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
-# copy_config_to_prod.sh — Copia tablas de configuración de local a producción.
+# copy_config_to_prod.sh — Copia tablas de configuración visual/estructural a producción.
+#
+# Tablas copiadas:   corporate_entities, ui_brand_settings
+# Tablas excluidas:  role_permissions, user_access, user_tenants, audit_log
 #
 # Uso:
 #   ./copy_config_to_prod.sh           # ejecución real
