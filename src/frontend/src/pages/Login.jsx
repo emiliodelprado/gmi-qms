@@ -13,6 +13,13 @@ const ROLE_COLOR = {
 };
 const roleColor = (role) => ROLE_COLOR[role] ?? COLORS.grayLight;
 
+// ─── Redirect to the originally-requested URL (or /home) after login ──────────
+function redirectAfterLogin() {
+  const url = sessionStorage.getItem("qms_return_url") || "/home";
+  sessionStorage.removeItem("qms_return_url");
+  window.location.href = url;
+}
+
 // ─── Dev login page ───────────────────────────────────────────────────────────
 function DevLogin() {
   const [users,   setUsers]   = useState([]);
@@ -31,7 +38,7 @@ function DevLogin() {
     setSigning(userId);
     try {
       await apiFetch(`/auth/dev-login/user/${userId}`);
-      window.location.href = "/";
+      redirectAfterLogin();
     } catch {
       setSigning(null);
     }
@@ -174,7 +181,7 @@ function ProdLogin() {
         body: JSON.stringify({ email, password }),
       });
       if (res.ok) {
-        window.location.href = "/";
+        redirectAfterLogin();
       } else {
         const data = await res.json().catch(() => ({}));
         setError(data.detail || "Credenciales incorrectas");

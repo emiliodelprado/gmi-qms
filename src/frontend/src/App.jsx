@@ -1,5 +1,5 @@
 import { useState, useEffect, createContext, useContext } from "react";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { COLORS, H, B, apiFetch, getInitials, ROLE_LABELS, Icon } from "./constants.jsx";
 
 import Sidebar    from "./components/Sidebar.jsx";
@@ -51,6 +51,18 @@ import { PermissionsContext } from "./contexts.jsx";
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 export const CompanyContext = createContext({ company: "GMS", brand: "EPUNTO", setCompany: () => {}, setBrand: () => {} });
+
+// ─── Redirect to login, preserving the intended URL ───────────────────────────
+function RedirectToLogin() {
+  const location = useLocation();
+  useEffect(() => {
+    const path = location.pathname + location.search;
+    if (path !== "/" && path !== "/login") {
+      sessionStorage.setItem("qms_return_url", path);
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return <Navigate to="/login" replace />;
+}
 
 // ─── Auth hook ────────────────────────────────────────────────────────────────
 function useAuth() {
@@ -246,8 +258,9 @@ const Profile = ({ user }) => {
 
 // ─── Layout ───────────────────────────────────────────────────────────────────
 const Layout = ({ user }) => {
-  const [company,    setCompany]    = useState("GMS");
-  const [brand,      setBrand]      = useState("EPUNTO");
+  // Initialise selectors from the user's stored default, then resolved active tenant, then hardcoded fallback
+  const [company,    setCompany]    = useState(user?.default_company_id ?? user?.company_id ?? "GMS");
+  const [brand,      setBrand]      = useState(user?.default_brand_id   ?? user?.brand_id   ?? "EPUNTO");
   const [brandColor, setBrandColor] = useState(COLORS.sidebar);
   const [mini,       setMini]       = useState(() => localStorage.getItem("qms_sidebar_mini") === "1");
   const toggleMini = () => setMini(m => {
@@ -348,7 +361,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="*" element={<Navigate to="/login" replace />} />
+          <Route path="*" element={<RedirectToLogin />} />
         </Routes>
       </BrowserRouter>
     );

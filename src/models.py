@@ -11,14 +11,17 @@ class UserAccess(Base):
     """
     __tablename__ = "user_access"
 
-    id            = Column(Integer, primary_key=True, index=True)
-    email         = Column(String(200), unique=True, nullable=False, index=True)
-    name          = Column(String(200), nullable=True)
-    activo        = Column(Integer, default=1)           # global account flag
+    id                 = Column(Integer, primary_key=True, index=True)
+    email              = Column(String(200), unique=True, nullable=False, index=True)
+    name               = Column(String(200), nullable=True)
+    activo             = Column(Integer, default=1)           # global account flag
     # Local auth
-    password_hash = Column(String(200), nullable=True)   # Argon2id; NULL = SSO-only
-    last_login    = Column(DateTime, nullable=True)
-    created_at    = Column(DateTime, default=datetime.utcnow)
+    password_hash      = Column(String(200), nullable=True)   # Argon2id; NULL = SSO-only
+    last_login         = Column(DateTime, nullable=True)
+    created_at         = Column(DateTime, default=datetime.utcnow)
+    # Default context shown in TopBar on first login
+    default_company_id = Column(String(10),  nullable=True)
+    default_brand_id   = Column(String(50),  nullable=True)
 
     tenants       = relationship("UserTenant", back_populates="user",
                                  cascade="all, delete-orphan", lazy="selectin")

@@ -36,12 +36,14 @@ def _user_to_read(
                 break
 
     return schemas.UserAccessRead(
-        id         = user.id,
-        email      = user.email,
-        name       = user.name,
-        activo     = user.activo,
-        last_login = user.last_login,
-        created_at = user.created_at,
+        id                 = user.id,
+        email              = user.email,
+        name               = user.name,
+        activo             = user.activo,
+        last_login         = user.last_login,
+        created_at         = user.created_at,
+        default_company_id = user.default_company_id,
+        default_brand_id   = user.default_brand_id,
         tenants    = [
             schemas.UserTenantRead(
                 id         = t.id,
@@ -96,9 +98,11 @@ def get_user_access_by_id(db: Session, user_id: int) -> Optional[models.UserAcce
 def create_user_access(db: Session, payload: schemas.UserAccessCreate) -> schemas.UserAccessRead:
     """Create a user identity record and all its tenant assignments."""
     obj = models.UserAccess(
-        email  = payload.email,
-        name   = payload.name,
-        activo = payload.activo,
+        email              = payload.email,
+        name               = payload.name,
+        activo             = payload.activo,
+        default_company_id = payload.default_company_id,
+        default_brand_id   = payload.default_brand_id,
     )
     if payload.password:
         obj.password_hash = _argon2_hasher().hash(payload.password)
@@ -129,9 +133,11 @@ def update_user_access(
     if not obj:
         return None
 
-    obj.email  = payload.email
-    obj.name   = payload.name
-    obj.activo = payload.activo
+    obj.email              = payload.email
+    obj.name               = payload.name
+    obj.activo             = payload.activo
+    obj.default_company_id = payload.default_company_id
+    obj.default_brand_id   = payload.default_brand_id
     if payload.password:
         obj.password_hash = _argon2_hasher().hash(payload.password)
 
@@ -508,12 +514,15 @@ def create_corporate_entity(
     db: Session, payload: schemas.CorporateEntityCreate
 ) -> models.CorporateEntity:
     obj = models.CorporateEntity(
-        tipo       = payload.tipo,
-        label      = payload.label,
-        code       = payload.code,
-        parent_id  = payload.parent_id,
-        activo     = payload.activo,
-        sort_order = payload.sort_order,
+        tipo                = payload.tipo,
+        label               = payload.label,
+        code                = payload.code,
+        parent_id           = payload.parent_id,
+        activo              = payload.activo,
+        sort_order          = payload.sort_order,
+        denominacion_social = payload.denominacion_social,
+        domicilio_social    = payload.domicilio_social,
+        nif                 = payload.nif,
     )
     db.add(obj)
     db.commit()
@@ -527,12 +536,15 @@ def update_corporate_entity(
     obj = get_corporate_entity(db, eid)
     if not obj:
         return None
-    obj.tipo       = payload.tipo
-    obj.label      = payload.label
-    obj.code       = payload.code
-    obj.parent_id  = payload.parent_id
-    obj.activo     = payload.activo
-    obj.sort_order = payload.sort_order
+    obj.tipo                = payload.tipo
+    obj.label               = payload.label
+    obj.code                = payload.code
+    obj.parent_id           = payload.parent_id
+    obj.activo              = payload.activo
+    obj.sort_order          = payload.sort_order
+    obj.denominacion_social = payload.denominacion_social
+    obj.domicilio_social    = payload.domicilio_social
+    obj.nif                 = payload.nif
     db.commit()
     db.refresh(obj)
     return obj

@@ -6,6 +6,19 @@ const ROLES    = ["IT", "Dirección", "Calidad", "Partners", "Managers", "Colabo
 const EMPRESAS = ["GMS", "GMP"];
 const MARCAS   = ["EPUNTO", "LIQUID", "THE LIQUID FINANCE"];
 
+// Derive scope from filled fields
+function getScope(t) {
+  if (!t.company_id && !t.brand_id) return "grupo";
+  if (t.company_id  && !t.brand_id) return "entidad";
+  return "marca";
+}
+
+const SCOPE_HINT = {
+  grupo:   { text: "Aplica a todo el grupo",         color: "#6A1B9A", bg: "#F3E5F5" },
+  entidad: { text: "Aplica a todas las marcas",       color: "#1565C0", bg: "#E3F2FD" },
+  marca:   { text: "Aplica solo a esta marca",        color: "#2E7D32", bg: "#E8F5E9" },
+};
+
 const ROL_CFG = {
   "IT":          { bg: "#F3E5F5", color: "#6A1B9A" },
   "Dirección":   { bg: "#FFEBEE", color: "#C62828" },
@@ -19,22 +32,23 @@ const ROL_CFG = {
 // Backend UserAccessRead → frontend row
 function fromApi(u) {
   return {
-    id:      u.id,
-    email:   u.email,
-    nombre:  u.name ?? "—",
-    estado:  u.activo === 1 ? "Activo" : "Inactivo",
-    ultima:  u.last_login
+    id:                 u.id,
+    email:              u.email,
+    nombre:             u.name ?? "—",
+    estado:             u.activo === 1 ? "Activo" : "Inactivo",
+    ultima:             u.last_login
       ? new Date(u.last_login).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })
       : "—",
-    // Role in the requested tenant context
-    rol:     u.role     ?? "—",
-    empresa: u.company_id ?? "—",
-    marca:   u.brand_id   ?? "—",
-    // All tenant assignments
+    rol:                u.role       ?? "—",
+    empresa:            u.company_id ?? "—",
+    marca:              u.brand_id   ?? "—",
+    default_company_id: u.default_company_id ?? "",
+    default_brand_id:   u.default_brand_id   ?? "",
     tenants: (u.tenants ?? []).map(t => ({
       id:         t.id,
-      company_id: t.company_id,
-      brand_id:   t.brand_id,
+      scope:      t.scope      ?? "marca",
+      company_id: t.company_id ?? "",
+      brand_id:   t.brand_id   ?? "",
       role:       t.role,
       activo:     t.activo,
     })),
@@ -44,10 +58,18 @@ function fromApi(u) {
 // Frontend form → backend UserAccessCreate payload
 function toApi(form) {
   const body = {
-    email:   form.email.trim(),
-    name:    form.nombre.trim() || null,
-    activo:  form.estado === "Activo" ? 1 : 0,
-    tenants: form.tenants,
+    email:              form.email.trim(),
+    name:               form.nombre.trim() || null,
+    activo:             form.estado === "Activo" ? 1 : 0,
+    default_company_id: form.default_company_id || null,
+    default_brand_id:   form.default_brand_id   || null,
+    tenants: form.tenants.map(t => ({
+      scope:      getScope(t),
+      company_id: t.company_id || null,
+      brand_id:   t.brand_id   || null,
+      role:       t.role,
+      activo:     t.activo,
+    })),
   };
   if (form.password) body.password = form.password;
   return body;
@@ -57,6 +79,8 @@ const EMPTY_TENANT = (company, brand) => ({ company_id: company, brand_id: brand
 const EMPTY_FORM   = (company, brand) => ({
   email: "", nombre: "", password: "", estado: "Activo",
   tenants: [EMPTY_TENANT(company, brand)],
+  default_company_id: company,
+  default_brand_id:   brand,
 });
 
 const inp = {
@@ -127,12 +151,14 @@ export default function AdmUsers() {
   const openEdit = (u) => {
     setEditing(u);
     setForm({
-      email:   u.email,
-      nombre:  u.nombre === "—" ? "" : u.nombre,
-      password: "",
-      estado:  u.estado,
+      email:              u.email,
+      nombre:             u.nombre === "—" ? "" : u.nombre,
+      password:           "",
+      estado:             u.estado,
+      default_company_id: u.default_company_id ?? "",
+      default_brand_id:   u.default_brand_id   ?? "",
       tenants: u.tenants.length > 0
-        ? u.tenants.map(t => ({ company_id: t.company_id, brand_id: t.brand_id, role: t.role, activo: t.activo }))
+        ? u.tenants.map(t => ({ company_id: t.company_id ?? "", brand_id: t.brand_id ?? "", role: t.role, activo: t.activo }))
         : [EMPTY_TENANT(company, brand)],
     });
     setFormError(null);
@@ -152,9 +178,9 @@ export default function AdmUsers() {
     if (!form.email.trim())        { setFormError("El email es obligatorio"); return; }
     if (!editing && !form.password.trim()) { setFormError("La contraseña es obligatoria para nuevos usuarios"); return; }
     if (form.tenants.length === 0) { setFormError("El usuario debe tener al menos un acceso asignado"); return; }
-    const tenantKeys = form.tenants.map(t => `${t.company_id}|${t.brand_id}`);
+    const tenantKeys = form.tenants.map(t => `${getScope(t)}|${t.company_id}|${t.brand_id}`);
     if (new Set(tenantKeys).size !== tenantKeys.length) {
-      setFormError("Hay accesos duplicados: la combinación empresa·marca debe ser única por usuario.");
+      setFormError("Hay accesos duplicados: no puede haber dos asignaciones con el mismo scope y empresa/marca.");
       return;
     }
     setSaving(true);
@@ -306,33 +332,75 @@ export default function AdmUsers() {
                 </div>
               )}
 
-              {form.tenants.map((t, i) => (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr 1.2fr auto", gap: 8, marginBottom: 8, alignItems: "center", padding: "10px 12px", background: "#FAFAFA", borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
-                  <div>
-                    <label style={{ ...lbl, marginBottom: 3 }}>Empresa</label>
-                    <select style={sel} value={t.company_id} onChange={e => updateTenant(i, "company_id", e.target.value)}>
-                      {EMPRESAS.map(e => <option key={e} value={e}>{e}</option>)}
-                    </select>
+              {form.tenants.map((t, i) => {
+                const scope = getScope(t);
+                const hint  = SCOPE_HINT[scope];
+                return (
+                  <div key={i} style={{ marginBottom: 8, padding: "10px 12px", background: "#FAFAFA", borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr 1.2fr auto", gap: 8, alignItems: "flex-end" }}>
+                      <div>
+                        <label style={{ ...lbl, marginBottom: 3 }}>Empresa <span style={{ fontWeight: 400, textTransform: "none" }}>(vacío = todo el grupo)</span></label>
+                        <select style={sel} value={t.company_id} onChange={e => updateTenant(i, "company_id", e.target.value)}>
+                          <option value="">— Todo el grupo —</option>
+                          {EMPRESAS.map(e => <option key={e} value={e}>{e}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ ...lbl, marginBottom: 3 }}>Marca <span style={{ fontWeight: 400, textTransform: "none" }}>(vacío = toda la empresa)</span></label>
+                        <select style={sel} value={t.brand_id}
+                          disabled={!t.company_id}
+                          onChange={e => updateTenant(i, "brand_id", e.target.value)}>
+                          <option value="">— Toda la empresa —</option>
+                          {MARCAS.map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label style={{ ...lbl, marginBottom: 3 }}>Rol</label>
+                        <select style={sel} value={t.role} onChange={e => updateTenant(i, "role", e.target.value)}>
+                          {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+                        </select>
+                      </div>
+                      <button onClick={() => removeTenant(i)} title="Quitar acceso"
+                        style={{ background: "none", border: "1px solid #FCC", borderRadius: 6, padding: "6px 9px", cursor: "pointer", marginBottom: 1 }}>
+                        <Icon name="trash" size={12} color={COLORS.red} />
+                      </button>
+                    </div>
+                    <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 5, padding: "2px 8px", borderRadius: 10, background: hint.bg }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, color: hint.color, fontFamily: H }}>↳ {hint.text}</span>
+                    </div>
                   </div>
-                  <div>
-                    <label style={{ ...lbl, marginBottom: 3 }}>Marca</label>
-                    <select style={sel} value={t.brand_id} onChange={e => updateTenant(i, "brand_id", e.target.value)}>
-                      {MARCAS.map(m => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ ...lbl, marginBottom: 3 }}>Rol</label>
-                    <select style={sel} value={t.role} onChange={e => updateTenant(i, "role", e.target.value)}>
-                      {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                    </select>
-                  </div>
-                  <button onClick={() => removeTenant(i)} title="Quitar acceso"
-                    style={{ alignSelf: "flex-end", background: "none", border: "1px solid #FCC", borderRadius: 6, padding: "6px 9px", cursor: "pointer", marginBottom: 1 }}>
-                    <Icon name="trash" size={12} color={COLORS.red} />
-                  </button>
-                </div>
-              ))}
+                );
+              })}
             </div>
+
+            {/* ── Default tenant ─────────────────────────────────────────── */}
+            {form.tenants.length > 0 && (
+              <div style={{ marginBottom: 20, padding: "12px 14px", background: "#F0F7FF", borderRadius: 8, border: "1px solid #BBDEFB" }}>
+                <label style={{ ...lbl, marginBottom: 6, color: "#1565C0" }}>Acceso por defecto al entrar</label>
+                <select
+                  style={{ ...sel, borderColor: "#90CAF9" }}
+                  value={`${form.default_company_id}|${form.default_brand_id}`}
+                  onChange={e => {
+                    const [cid, bid] = e.target.value.split("|");
+                    setForm(p => ({ ...p, default_company_id: cid, default_brand_id: bid }));
+                  }}
+                >
+                  {form.tenants.map((t, i) => {
+                    const label = t.company_id
+                      ? (t.brand_id ? `${t.company_id} · ${t.brand_id}` : `${t.company_id} (toda la empresa)`)
+                      : "Todo el grupo";
+                    return (
+                      <option key={i} value={`${t.company_id}|${t.brand_id}`}>
+                        {label} — {t.role}
+                      </option>
+                    );
+                  })}
+                </select>
+                <div style={{ fontSize: 11, color: "#1565C0", fontFamily: B, marginTop: 5, opacity: 0.8 }}>
+                  El selector de empresa y marca se iniciará con este contexto al entrar al sistema.
+                </div>
+              </div>
+            )}
 
             {formError && (
               <div style={{ marginBottom: 12, padding: "8px 12px", background: "#FFF0F0", border: "1px solid #F5CCCC", borderRadius: 6, fontSize: 13, color: COLORS.red, fontFamily: B }}>
@@ -428,11 +496,15 @@ export default function AdmUsers() {
                     <td style={{ padding: "10px 16px" }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                         {u.tenants.slice(0, 3).map((t, j) => {
-                          const trc = ROL_CFG[t.role] ?? { bg: "#EEE", color: "#555" };
+                          const trc   = ROL_CFG[t.role] ?? { bg: "#EEE", color: "#555" };
+                          const sc    = t.scope ?? getScope(t);
+                          const label = sc === "grupo"   ? "Grupo"
+                                      : sc === "entidad" ? `${t.company_id}·*`
+                                      : `${t.company_id}·${(t.brand_id ?? "").slice(0, 3)}`;
                           return (
-                            <span key={j} title={`${t.company_id}·${t.brand_id}: ${t.role}`}
+                            <span key={j} title={`[${sc}] ${t.company_id ?? "—"}·${t.brand_id ?? "—"}: ${t.role}`}
                               style={{ fontSize: 10, padding: "2px 7px", borderRadius: 10, background: trc.bg, color: trc.color, fontFamily: H, fontWeight: 800, border: `1px solid ${trc.color}22` }}>
-                              {t.company_id}·{t.brand_id.slice(0, 3)}
+                              {label}
                             </span>
                           );
                         })}

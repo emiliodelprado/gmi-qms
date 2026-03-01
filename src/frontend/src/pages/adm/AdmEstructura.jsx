@@ -95,7 +95,10 @@ function EntityModal({ initial, allEntities, onClose, onSaved }) {
           <label style={labelStyle}>Tipo</label>
           <select
             value={tiposAvail.includes(form.tipo) ? form.tipo : tiposAvail[0]}
-            onChange={e => set("tipo", e.target.value)}
+            onChange={e => {
+              const t = e.target.value;
+              setForm(f => ({ ...f, tipo: t, parent_id: t === "Grupo" ? null : f.parent_id }));
+            }}
             style={{ ...inputStyle, width: "100%" }}
           >
             {tiposAvail.map(t => <option key={t} value={t}>{t}</option>)}
@@ -166,20 +169,22 @@ function EntityModal({ initial, allEntities, onClose, onSaved }) {
           </>
         )}
 
-        {/* Entidad padre */}
-        <div style={{ marginBottom: 14 }}>
-          <label style={labelStyle}>Entidad padre</label>
-          <select
-            value={form.parent_id ?? ""}
-            onChange={e => set("parent_id", e.target.value ? Number(e.target.value) : null)}
-            style={{ ...inputStyle, width: "100%" }}
-          >
-            <option value="">— Sin padre (raíz) —</option>
-            {candidates.map(c => (
-              <option key={c.id} value={c.id}>{c.label} ({c.code})</option>
-            ))}
-          </select>
-        </div>
+        {/* Entidad padre — oculto para Grupo (es la raíz máxima) */}
+        {form.tipo !== "Grupo" && (
+          <div style={{ marginBottom: 14 }}>
+            <label style={labelStyle}>Entidad padre</label>
+            <select
+              value={form.parent_id ?? ""}
+              onChange={e => set("parent_id", e.target.value ? Number(e.target.value) : null)}
+              style={{ ...inputStyle, width: "100%" }}
+            >
+              <option value="">— Sin padre (raíz) —</option>
+              {candidates.map(c => (
+                <option key={c.id} value={c.id}>{c.label} ({c.code})</option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Orden */}
         <div style={{ marginBottom: 14 }}>

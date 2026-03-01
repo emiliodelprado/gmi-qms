@@ -36,15 +36,19 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> schemas
     if req_company and req_brand:
         tenant = crud.get_user_tenant_by_context(db, user.id, req_company, req_brand)
 
-    # Fall back to first active tenant if no header or no match
-    # Priority: marca > entidad > grupo (most specific first)
+    # Fall back: try the stored default first, then first active tenant
     if not tenant:
-        scope_order = {"marca": 0, "entidad": 1, "grupo": 2}
-        active = sorted(
-            [t for t in user.tenants if t.activo == 1],
-            key=lambda t: scope_order.get(t.scope, 99),
-        )
-        tenant = active[0] if active else None
+        if user.default_company_id:
+            tenant = crud.get_user_tenant_by_context(
+                db, user.id, user.default_company_id, user.default_brand_id or ""
+            )
+        if not tenant:
+            scope_order = {"marca": 0, "entidad": 1, "grupo": 2}
+            active = sorted(
+                [t for t in user.tenants if t.activo == 1],
+                key=lambda t: scope_order.get(t.scope, 99),
+            )
+            tenant = active[0] if active else None
 
     if not tenant:
         raise HTTPException(
@@ -64,14 +68,16 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> schemas
             resolved_company, resolved_brand = first
 
     return schemas.UserInfo(
-        user_id    = payload["user_id"],
-        email      = email,
-        name       = payload.get("name", ""),
-        roles      = payload.get("roles", []),
-        role       = tenant.role,
-        scope      = tenant.scope,
-        company_id = resolved_company,
-        brand_id   = resolved_brand,
+        user_id            = payload["user_id"],
+        email              = email,
+        name               = payload.get("name", ""),
+        roles              = payload.get("roles", []),
+        role               = tenant.role,
+        scope              = tenant.scope,
+        company_id         = resolved_company,
+        brand_id           = resolved_brand,
+        default_company_id = user.default_company_id,
+        default_brand_id   = user.default_brand_id,
     )
 
 

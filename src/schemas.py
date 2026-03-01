@@ -6,14 +6,17 @@ from datetime import datetime
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
 class UserInfo(BaseModel):
-    user_id:    str
-    email:      str
-    name:       str
-    roles:      List[str]
-    role:       Optional[str] = None   # QMS role (resolved for active tenant)
-    scope:      Optional[str] = None   # "grupo" | "entidad" | "marca"
-    company_id: Optional[str] = None
-    brand_id:   Optional[str] = None
+    user_id:            str
+    email:              str
+    name:               str
+    roles:              List[str]
+    role:               Optional[str] = None   # QMS role (resolved for active tenant)
+    scope:              Optional[str] = None   # "grupo" | "entidad" | "marca"
+    company_id:         Optional[str] = None
+    brand_id:           Optional[str] = None
+    # Stored default context (used to initialise the TopBar selector on login)
+    default_company_id: Optional[str] = None
+    default_brand_id:   Optional[str] = None
 
 
 # ── Local auth ────────────────────────────────────────────────────────────────
@@ -85,11 +88,13 @@ class UserTenantRead(UserTenantEntry):
 # ── User Access ───────────────────────────────────────────────────────────────
 class UserAccessCreate(BaseModel):
     """Payload to create or fully replace a user (identity + tenant list)."""
-    email:    str
-    name:     Optional[str] = None
-    password: Optional[str] = None   # plain-text; hashed before storage; None = SSO-only
-    activo:   int = 1
-    tenants:  List[UserTenantEntry] = []
+    email:              str
+    name:               Optional[str] = None
+    password:           Optional[str] = None   # plain-text; hashed before storage; None = SSO-only
+    activo:             int = 1
+    tenants:            List[UserTenantEntry] = []
+    default_company_id: Optional[str] = None
+    default_brand_id:   Optional[str] = None
 
 
 class UserAccessRead(BaseModel):
