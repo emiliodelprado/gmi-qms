@@ -1,6 +1,6 @@
 """Database CRUD operations for GMI QMS."""
 from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from sqlalchemy import desc, or_, and_
 from typing import List, Optional
 from datetime import datetime, timedelta
 import hashlib, secrets
@@ -29,11 +29,21 @@ def _user_to_read(
     """
     active_tenant = None
     if company_id or brand_id:
+        # Priority: marca > entidad > grupo (most specific wins)
         for t in user.tenants:
-            if (not company_id or t.company_id == company_id) and \
-               (not brand_id   or t.brand_id   == brand_id):
+            if t.scope == "marca" and t.company_id == company_id and t.brand_id == brand_id:
                 active_tenant = t
                 break
+        if not active_tenant and company_id:
+            for t in user.tenants:
+                if t.scope == "entidad" and t.company_id == company_id:
+                    active_tenant = t
+                    break
+        if not active_tenant:
+            for t in user.tenants:
+                if t.scope == "grupo":
+                    active_tenant = t
+                    break
 
     return schemas.UserAccessRead(
         id                 = user.id,
@@ -74,10 +84,23 @@ def get_user_access_list(
         q = q.join(models.UserTenant,
                    models.UserTenant.user_id == models.UserAccess.id)
         q = q.filter(models.UserTenant.activo == 1)
+        # Include users whose effective role covers this context:
+        #   scope=grupo   → always applies (whole organisation)
+        #   scope=entidad → applies when company matches
+        #   scope=marca   → applies when company + brand both match
+        conditions = [models.UserTenant.scope == "grupo"]
         if company_id:
-            q = q.filter(models.UserTenant.company_id == company_id)
+            conditions.append(and_(
+                models.UserTenant.scope == "entidad",
+                models.UserTenant.company_id == company_id,
+            ))
+        marca_conds = [models.UserTenant.scope == "marca"]
+        if company_id:
+            marca_conds.append(models.UserTenant.company_id == company_id)
         if brand_id:
-            q = q.filter(models.UserTenant.brand_id == brand_id)
+            marca_conds.append(models.UserTenant.brand_id == brand_id)
+        conditions.append(and_(*marca_conds))
+        q = q.filter(or_(*conditions))
 
     users = q.order_by(models.UserAccess.email).distinct().all()
     return [_user_to_read(u, company_id, brand_id) for u in users]
@@ -456,7 +479,7 @@ def get_audit_log(
 def get_ui_brand_settings(
     db: Session, company_id: str, brand_id: str
 ) -> Optional[models.UIBrandSettings]:
-    return (
+    obj = (
         db.query(models.UIBrandSettings)
         .filter(
             models.UIBrandSettings.company_id == company_id,
@@ -464,6 +487,17 @@ def get_ui_brand_settings(
         )
         .first()
     )
+    # Fall back to the global company entry (brand_id="") when no specific brand config exists
+    if not obj and brand_id:
+        obj = (
+            db.query(models.UIBrandSettings)
+            .filter(
+                models.UIBrandSettings.company_id == company_id,
+                models.UIBrandSettings.brand_id   == "",
+            )
+            .first()
+        )
+    return obj
 
 
 def upsert_ui_brand_settings(

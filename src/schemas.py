@@ -109,11 +109,14 @@ class UserAccessRead(BaseModel):
     activo:     int
     last_login: Optional[datetime] = None
     created_at: Optional[datetime] = None
-    tenants:    List[UserTenantRead] = []
+    tenants:            List[UserTenantRead] = []
     # Active-tenant convenience fields (populated when filtered by company/brand)
-    role:       Optional[str] = None
-    company_id: Optional[str] = None
-    brand_id:   Optional[str] = None
+    role:               Optional[str] = None
+    company_id:         Optional[str] = None
+    brand_id:           Optional[str] = None
+    # Stored defaults used by the frontend to initialise the context selector
+    default_company_id: Optional[str] = None
+    default_brand_id:   Optional[str] = None
 
     class Config:
         from_attributes = True

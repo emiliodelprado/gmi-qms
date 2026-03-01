@@ -57,12 +57,16 @@ function fromApi(u) {
 
 // Frontend form → backend UserAccessCreate payload
 function toApi(form) {
+  // Ensure default always points to one of the user's real tenants
+  const matchedDefault = form.tenants.find(
+    t => t.company_id === form.default_company_id && (t.brand_id || "") === (form.default_brand_id || "")
+  ) || form.tenants[0];
   const body = {
     email:              form.email.trim(),
     name:               form.nombre.trim() || null,
     activo:             form.estado === "Activo" ? 1 : 0,
-    default_company_id: form.default_company_id || null,
-    default_brand_id:   form.default_brand_id   || null,
+    default_company_id: matchedDefault?.company_id || null,
+    default_brand_id:   matchedDefault?.brand_id   || null,
     tenants: form.tenants.map(t => ({
       scope:      getScope(t),
       company_id: t.company_id || null,
@@ -75,12 +79,12 @@ function toApi(form) {
   return body;
 }
 
-const EMPTY_TENANT = (company, brand) => ({ company_id: company, brand_id: brand, role: "Colaborador", activo: 1 });
-const EMPTY_FORM   = (company, brand) => ({
+const EMPTY_TENANT = (company) => ({ company_id: company, brand_id: "", role: "Colaborador", activo: 1 });
+const EMPTY_FORM   = (company) => ({
   email: "", nombre: "", password: "", estado: "Activo",
-  tenants: [EMPTY_TENANT(company, brand)],
+  tenants: [EMPTY_TENANT(company)],
   default_company_id: company,
-  default_brand_id:   brand,
+  default_brand_id:   "",
 });
 
 const inp = {
@@ -116,14 +120,14 @@ export default function AdmUsers() {
     "X-Tenant-Brand":   brand,
   };
 
-  useEffect(() => { loadUsers(); }, [company, brand]);  // eslint-disable-line
+  useEffect(() => { loadUsers(); }, [company]);  // eslint-disable-line
 
   async function loadUsers() {
     setLoading(true);
     setApiError(null);
     try {
       const r = await fetch(
-        `/api/adm/users?company_id=${encodeURIComponent(company)}&brand_id=${encodeURIComponent(brand)}`,
+        `/api/adm/users?company_id=${encodeURIComponent(company)}`,
         { credentials: "include", headers: tenantHeaders },
       );
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -143,23 +147,29 @@ export default function AdmUsers() {
 
   const openNew = () => {
     setEditing(null);
-    setForm(EMPTY_FORM(company, brand));
+    setForm(EMPTY_FORM(company));
     setFormError(null);
     setShowForm(true);
   };
 
   const openEdit = (u) => {
     setEditing(u);
+    const mappedTenants = u.tenants.length > 0
+      ? u.tenants.map(t => ({ company_id: t.company_id ?? "", brand_id: t.brand_id ?? "", role: t.role, activo: t.activo }))
+      : [EMPTY_TENANT(company)];
+    // Correct the stored default if it doesn't match any of the user's actual tenants
+    const hasValidDefault = mappedTenants.some(
+      t => t.company_id === u.default_company_id && (t.brand_id || "") === (u.default_brand_id || "")
+    );
+    const defaultTenant = hasValidDefault ? null : mappedTenants[0];
     setForm({
       email:              u.email,
       nombre:             u.nombre === "—" ? "" : u.nombre,
       password:           "",
       estado:             u.estado,
-      default_company_id: u.default_company_id ?? "",
-      default_brand_id:   u.default_brand_id   ?? "",
-      tenants: u.tenants.length > 0
-        ? u.tenants.map(t => ({ company_id: t.company_id ?? "", brand_id: t.brand_id ?? "", role: t.role, activo: t.activo }))
-        : [EMPTY_TENANT(company, brand)],
+      default_company_id: hasValidDefault ? (u.default_company_id ?? "") : (defaultTenant?.company_id ?? ""),
+      default_brand_id:   hasValidDefault ? (u.default_brand_id   ?? "") : (defaultTenant?.brand_id   ?? ""),
+      tenants: mappedTenants,
     });
     setFormError(null);
     setShowForm(true);
@@ -172,12 +182,13 @@ export default function AdmUsers() {
     return { ...p, tenants };
   });
   const removeTenant = (i) => setForm(p => ({ ...p, tenants: p.tenants.filter((_, j) => j !== i) }));
-  const addTenant    = ()  => setForm(p => ({ ...p, tenants: [...p.tenants, EMPTY_TENANT(company, brand)] }));
+  const addTenant    = ()  => setForm(p => ({ ...p, tenants: [...p.tenants, EMPTY_TENANT(company)] }));
 
   const handleSave = async () => {
     if (!form.email.trim())        { setFormError("El email es obligatorio"); return; }
     if (!editing && !form.password.trim()) { setFormError("La contraseña es obligatoria para nuevos usuarios"); return; }
     if (form.tenants.length === 0) { setFormError("El usuario debe tener al menos un acceso asignado"); return; }
+    if (form.tenants.some(t => !t.company_id)) { setFormError("Cada acceso debe tener una empresa seleccionada"); return; }
     const tenantKeys = form.tenants.map(t => `${getScope(t)}|${t.company_id}|${t.brand_id}`);
     if (new Set(tenantKeys).size !== tenantKeys.length) {
       setFormError("Hay accesos duplicados: no puede haber dos asignaciones con el mismo scope y empresa/marca.");
@@ -252,7 +263,7 @@ export default function AdmUsers() {
     <div>
       <PageHeader
         title="Gestión de Usuarios On-premise"
-        subtitle={`Usuarios con acceso a ${company} · ${brand} — Argon2id`}
+        subtitle={`Usuarios con acceso a ${company} — Argon2id`}
         action={<BtnPrimary onClick={openNew}><Icon name="plus" size={14} color="#fff" /> Nuevo usuario</BtnPrimary>}
       />
 
@@ -261,7 +272,7 @@ export default function AdmUsers() {
         <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", background: "#F8F0FF", borderRadius: 20, border: "1px solid #D1A8F0" }}>
           <Icon name="lock" size={12} color="#6A1B9A" />
           <span style={{ fontSize: 11, fontWeight: 800, color: "#6A1B9A", fontFamily: H }}>Filtro activo:</span>
-          <span style={{ fontSize: 11, color: "#6A1B9A", fontFamily: B }}>{company} · {brand}</span>
+          <span style={{ fontSize: 11, color: "#6A1B9A", fontFamily: B }}>{company}</span>
         </div>
         {!loading && (
           <span style={{ fontSize: 12, color: COLORS.grayLight, fontFamily: B }}>
@@ -339,14 +350,21 @@ export default function AdmUsers() {
                   <div key={i} style={{ marginBottom: 8, padding: "10px 12px", background: "#FAFAFA", borderRadius: 8, border: `1px solid ${COLORS.border}` }}>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1.4fr 1.2fr auto", gap: 8, alignItems: "flex-end" }}>
                       <div>
-                        <label style={{ ...lbl, marginBottom: 3 }}>Empresa <span style={{ fontWeight: 400, textTransform: "none" }}>(vacío = todo el grupo)</span></label>
-                        <select style={sel} value={t.company_id} onChange={e => updateTenant(i, "company_id", e.target.value)}>
-                          <option value="">— Todo el grupo —</option>
+                        <label style={{ ...lbl, marginBottom: 3 }}>Empresa *</label>
+                        <select style={{ ...sel, borderColor: !t.company_id ? "#FCA5A5" : undefined }} value={t.company_id} onChange={e => {
+                          const val = e.target.value;
+                          setForm(p => {
+                            const tenants = [...p.tenants];
+                            tenants[i] = { ...tenants[i], company_id: val, brand_id: "" };
+                            return { ...p, tenants };
+                          });
+                        }}>
+                          <option value="">— Selecciona empresa —</option>
                           {EMPRESAS.map(e => <option key={e} value={e}>{e}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label style={{ ...lbl, marginBottom: 3 }}>Marca <span style={{ fontWeight: 400, textTransform: "none" }}>(vacío = toda la empresa)</span></label>
+                        <label style={{ ...lbl, marginBottom: 3 }}>Marca <span style={{ fontWeight: 400, textTransform: "none" }}>(vacío = todas las marcas)</span></label>
                         <select style={sel} value={t.brand_id}
                           disabled={!t.company_id}
                           onChange={e => updateTenant(i, "brand_id", e.target.value)}>
@@ -540,7 +558,7 @@ export default function AdmUsers() {
         )}
         {!loading && visible.length === 0 && (
           <div style={{ padding: 32, textAlign: "center", color: COLORS.grayLight, fontFamily: B }}>
-            Sin usuarios con acceso a <strong>{company} · {brand}</strong>.
+            Sin usuarios con acceso a <strong>{company}</strong>.
           </div>
         )}
       </Card>

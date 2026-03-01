@@ -66,15 +66,55 @@ function RedirectToLogin() {
 
 // ─── Auth hook ────────────────────────────────────────────────────────────────
 function useAuth() {
-  const [user, setUser]       = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user,      setUser]      = useState(null);
+  const [loading,   setLoading]   = useState(true);
+  const [authError, setAuthError] = useState(null); // message from a 403 (session ok, no app access)
   useEffect(() => {
     apiFetch("/auth/me")
-      .then(r => r.ok ? r.json() : null)
-      .then(data => { setUser(data); setLoading(false); })
+      .then(async r => {
+        if (r.ok) return { user: await r.json(), error: null };
+        if (r.status === 403) {
+          const data = await r.json().catch(() => ({}));
+          return { user: null, error: data.detail || "Sin acceso a la aplicación." };
+        }
+        return { user: null, error: null };
+      })
+      .then(({ user, error }) => { setUser(user); setAuthError(error); setLoading(false); })
       .catch(() => setLoading(false));
   }, []);
-  return { user, loading };
+  return { user, loading, authError };
+}
+
+// ─── Access denied screen (403: session valid, no app permissions) ─────────────
+function AccessDeniedScreen({ message }) {
+  const handleLogout = async () => {
+    await fetch("/auth/logout", { method: "POST", credentials: "include" }).catch(() => {});
+    window.location.href = "/login";
+  };
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F4F4F4", fontFamily: B }}>
+      <div style={{ background: "#fff", borderRadius: 12, padding: "48px 40px", boxShadow: "0 4px 24px rgba(0,0,0,0.10)", width: 400, maxWidth: "90vw", textAlign: "center" }}>
+        <img src="/logo.png" alt="GMI" style={{ width: 110, marginBottom: 20, display: "inline-block" }} />
+        <div style={{ width: 52, height: 52, borderRadius: "50%", background: "#FFF0F0", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+          <svg width={22} height={22} viewBox="0 0 24 24" fill="none" stroke={COLORS.red} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <div style={{ fontSize: 17, fontWeight: 800, color: COLORS.gray, fontFamily: H, marginBottom: 10 }}>
+          Acceso no autorizado
+        </div>
+        <p style={{ fontSize: 13, color: COLORS.grayLight, lineHeight: 1.7, marginBottom: 28 }}>
+          {message}
+        </p>
+        <button
+          onClick={handleLogout}
+          style={{ padding: "10px 24px", background: COLORS.red, color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 700, fontFamily: H }}
+        >
+          Cerrar sesión
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ─── Permissions hook ─────────────────────────────────────────────────────────
@@ -348,13 +388,16 @@ const Layout = ({ user }) => {
 
 // ─── App root ─────────────────────────────────────────────────────────────────
 export default function App() {
-  const { user, loading } = useAuth();
+  const { user, loading, authError } = useAuth();
 
   if (loading) return (
     <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#F4F4F4" }}>
       <div style={{ color: COLORS.red, fontFamily: "'Nunito Sans', sans-serif", fontSize: 18, fontWeight: 800 }}>Cargando…</div>
     </div>
   );
+
+  // Session cookie valid but no app access (no user_access row or no active tenants)
+  if (authError) return <AccessDeniedScreen message={authError} />;
 
   if (!user) {
     return (

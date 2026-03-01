@@ -264,6 +264,39 @@ function ProdLogin() {
             {loading ? "Accediendo…" : "Iniciar sesión"}
           </button>
         </form>
+
+        {/* SSO divider */}
+        <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "24px 0 20px" }}>
+          <div style={{ flex: 1, height: 1, background: COLORS.border }} />
+          <span style={{ fontSize: 11, color: COLORS.grayLight, fontFamily: B, whiteSpace: "nowrap" }}>
+            o accede con tu cuenta corporativa
+          </span>
+          <div style={{ flex: 1, height: 1, background: COLORS.border }} />
+        </div>
+
+        <a
+          href="/auth/login"
+          style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+            width: "100%", padding: "10px", borderRadius: 8,
+            border: `1.5px solid ${COLORS.border}`,
+            background: "#fff", color: COLORS.gray,
+            fontFamily: H, fontWeight: 700, fontSize: 14,
+            textDecoration: "none", cursor: "pointer",
+            transition: "border-color 0.15s, background 0.15s",
+            boxSizing: "border-box",
+          }}
+          onMouseEnter={e => { e.currentTarget.style.borderColor = COLORS.red; e.currentTarget.style.background = "#FEF2F2"; }}
+          onMouseLeave={e => { e.currentTarget.style.borderColor = COLORS.border; e.currentTarget.style.background = "#fff"; }}
+        >
+          {/* OneLogin shield icon */}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L4 6v6c0 5.25 3.5 10.15 8 11.5C16.5 22.15 20 17.25 20 12V6L12 2z" fill="#D32F2F" opacity="0.15"/>
+            <path d="M12 2L4 6v6c0 5.25 3.5 10.15 8 11.5C16.5 22.15 20 17.25 20 12V6L12 2z" stroke="#D32F2F" strokeWidth="1.5" strokeLinejoin="round"/>
+            <circle cx="12" cy="12" r="2.5" fill="#D32F2F"/>
+          </svg>
+          Acceder con OneLogin (SSO)
+        </a>
       </div>
     </div>
   );

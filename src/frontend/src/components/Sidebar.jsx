@@ -118,7 +118,6 @@ const NAV_MODULES = [
 
 const SYSTEM_NAV = [
   { id: "admin",     label: "Usuarios",  icon: "admin",    path: "/admin/usuarios", adminOnly: true },
-  { id: "profile",   label: "Mi Perfil", icon: "profile",  path: "/perfil" },
   { id: "changelog", label: "Novedades", icon: "changelog", path: "/novedades" },
 ];
 
