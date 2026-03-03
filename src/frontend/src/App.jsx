@@ -1,8 +1,8 @@
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
-import { COLORS, H, B, apiFetch, getInitials, ROLE_LABELS, Icon } from "./constants.jsx";
+import { COLORS, H, B, apiFetch, getInitials, ROLE_LABELS, Icon, inputStyle } from "./constants.jsx";
 
-import Sidebar    from "./components/Sidebar.jsx";
+import Sidebar, { NAV_MODULES } from "./components/Sidebar.jsx";
 import TopBar     from "./components/TopBar.jsx";
 import AppFooter  from "./components/AppFooter.jsx";
 
@@ -46,8 +46,25 @@ import AdmLog             from "./pages/adm/AdmLog.jsx";
 import AdmAuth            from "./pages/adm/AdmAuth.jsx";
 import AdmUI              from "./pages/adm/AdmUI.jsx";
 import Novedades          from "./pages/Novedades.jsx";
+import Solicitudes        from "./pages/Solicitudes.jsx";
 import Login              from "./pages/Login.jsx";
-import { PermissionsContext } from "./contexts.jsx";
+import { PermissionsContext, SolicitudContext } from "./contexts.jsx";
+
+// ─── Screen catalogue (for solicitud form) ──────────────────────────────────
+const SCREEN_GROUPS = NAV_MODULES.map(mod => ({
+  label: mod.label,
+  screens: mod.fns.flatMap(fn => fn.screens.map(sc => sc.label)),
+}));
+const EXTRA_SCREENS = [
+  { path: "/home",        label: "Inicio" },
+  { path: "/novedades",   label: "Novedades" },
+  { path: "/solicitudes", label: "Solicitudes" },
+  { path: "/perfil",      label: "Perfil" },
+];
+const PATH_LABEL = Object.fromEntries([
+  ...NAV_MODULES.flatMap(m => m.fns.flatMap(fn => fn.screens.map(sc => [sc.path, sc.label]))),
+  ...EXTRA_SCREENS.map(s => [s.path, s.label]),
+]);
 
 // ─── Context ──────────────────────────────────────────────────────────────────
 export const CompanyContext = createContext({ company: "GMS", brand: "EPUNTO", setCompany: () => {}, setBrand: () => {} });
@@ -330,9 +347,51 @@ const Layout = ({ user }) => {
     return () => window.removeEventListener("brand-settings-saved", handler);
   }, [company, brand]);
 
+  // ── Previous-path tracking (for solicitud defaults) ─────────────────────────
+  const location = useLocation();
+  const [prevPath, setPrevPath] = useState("/home");
+  const currentPathRef = useRef(location.pathname);
+  useEffect(() => {
+    if (location.pathname !== currentPathRef.current) {
+      setPrevPath(currentPathRef.current);
+      currentPathRef.current = location.pathname;
+    }
+  }, [location.pathname]);
+
+  const prevScreenLabel = PATH_LABEL[prevPath] || "";
+
+  // ── Global solicitud drawer state ──────────────────────────────────────────
+  const [showSol, setShowSol]     = useState(false);
+  const [solForm, setSolForm]     = useState({ pantalla: "", detalle: "" });
+  const [solHover, setSolHover]   = useState(false);
+
+  const openSolicitud = (defaultPantalla = "") => {
+    setSolForm({ pantalla: defaultPantalla, detalle: "" });
+    setShowSol(true);
+  };
+  const closeSolicitud = () => setShowSol(false);
+
+  const handleSolSave = () => {
+    if (!solForm.pantalla.trim() || !solForm.detalle.trim()) return;
+    const nuevo = {
+      id:       Date.now(),
+      usuario:  user?.name || user?.email || "Usuario",
+      pantalla: solForm.pantalla.trim(),
+      fecha:    new Date().toISOString().slice(0, 10),
+      estado:   "enviada",
+      detalle:  solForm.detalle.trim(),
+      comentario_admin: "",
+    };
+    window.dispatchEvent(new CustomEvent("nueva-solicitud", { detail: nuevo }));
+    setShowSol(false);
+  };
+
+  const solCtx = { open: openSolicitud, prevScreenLabel, user };
+
   return (
     <CompanyContext.Provider value={{ company, brand, setCompany, setBrand }}>
       <PermissionsContext.Provider value={perms}>
+        <SolicitudContext.Provider value={solCtx}>
         <div style={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
           <TopBar user={user} company={company} brand={brand} setCompany={setCompany} setBrand={setBrand} />
           <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
@@ -341,7 +400,7 @@ const Layout = ({ user }) => {
             <main style={{ flex: 1, padding: "28px 30px", overflow: "auto", background: COLORS.bg }}>
               <Routes>
                 <Route path="/"                  element={<Navigate to="/home" replace />} />
-                <Route path="/home"              element={<HomeModules />} />
+                <Route path="/home"              element={<HomeModules user={user} />} />
                 <Route path="/est/dash/v-exe"    element={<GuardedRoute screenId="v-exe"    element={<DashEjecutivo />} />} />
                 <Route path="/est/dash/v-obj"    element={<GuardedRoute screenId="v-obj"    element={<DashObjetivos />} />} />
                 <Route path="/est/cont/v-dafo"   element={<GuardedRoute screenId="v-dafo"   element={<ContDafo />} />} />
@@ -375,12 +434,108 @@ const Layout = ({ user }) => {
                 <Route path="/admin/usuarios"    element={<AdminUsers />} />
                 <Route path="/perfil"            element={<Profile user={user} />} />
                 <Route path="/novedades"         element={<Novedades />} />
+                <Route path="/solicitudes"      element={<Solicitudes />} />
               </Routes>
             </main>
             <AppFooter />
             </div>
           </div>
+
+          {/* ── Floating side tab ───────────────────────────────────────────── */}
+          {!showSol && (
+            <button
+              onClick={() => openSolicitud(PATH_LABEL[location.pathname] || "")}
+              onMouseEnter={() => setSolHover(true)}
+              onMouseLeave={() => setSolHover(false)}
+              style={{
+                position: "fixed", right: 0, top: "50%",
+                transform: "translateY(-50%)",
+                writingMode: "vertical-rl", textOrientation: "mixed",
+                direction: "rtl",
+                padding: "14px 7px", border: "none", borderRadius: "6px 0 0 6px",
+                background: solHover ? COLORS.redDark : COLORS.red,
+                color: "#fff", cursor: "pointer",
+                fontFamily: H, fontWeight: 800, fontSize: 11,
+                letterSpacing: "0.05em",
+                boxShadow: "-2px 0 12px rgba(0,0,0,0.15)",
+                zIndex: 90, transition: "background 0.15s",
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <Icon name="suggestion" size={13} color="#fff" />
+                Nueva solicitud
+              </span>
+            </button>
+          )}
+
+          {/* ── Global solicitud drawer ─────────────────────────────────────── */}
+          {showSol && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 100, display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ width: 520, maxWidth: "92vw", background: COLORS.white, height: "100%", overflow: "auto", boxShadow: "-6px 0 32px rgba(0,0,0,0.18)" }}>
+
+                {/* Sticky header */}
+                <div style={{ position: "sticky", top: 0, background: COLORS.white, zIndex: 10, borderBottom: `1px solid ${COLORS.border}` }}>
+                  <div style={{ padding: "14px 24px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: COLORS.gray, fontFamily: H }}>Nueva solicitud</h2>
+                      <div style={{ fontSize: 12, color: COLORS.grayLight, marginTop: 2, fontFamily: B }}>Complete todos los campos requeridos</div>
+                    </div>
+                    <button onClick={closeSolicitud} style={{ background: "none", border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "6px 12px", cursor: "pointer", fontSize: 13, color: COLORS.grayLight, fontFamily: B }}>✕</button>
+                  </div>
+                </div>
+
+                {/* Form body */}
+                <div style={{ padding: "24px 24px 32px" }}>
+                  <div style={{ marginBottom: 20 }}>
+                    <label style={{ display: "block", fontSize: 10, fontWeight: 800, color: COLORS.grayLight, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: H }}>Pantalla *</label>
+                    <select
+                      style={{ ...inputStyle, appearance: "none" }}
+                      value={solForm.pantalla}
+                      onChange={e => setSolForm(f => ({ ...f, pantalla: e.target.value }))}
+                    >
+                      <option value="">Seleccionar pantalla...</option>
+                      {SCREEN_GROUPS.map(g => (
+                        <optgroup key={g.label} label={g.label}>
+                          {g.screens.map(s => <option key={s} value={s}>{s}</option>)}
+                        </optgroup>
+                      ))}
+                      <optgroup label="Sistema">
+                        {EXTRA_SCREENS.map(s => <option key={s.path} value={s.label}>{s.label}</option>)}
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  <div style={{ marginBottom: 20 }}>
+                    <label style={{ display: "block", fontSize: 10, fontWeight: 800, color: COLORS.grayLight, marginBottom: 5, textTransform: "uppercase", letterSpacing: "0.07em", fontFamily: H }}>Detalle *</label>
+                    <textarea
+                      style={{ ...inputStyle, minHeight: 140, resize: "vertical" }}
+                      placeholder="Describe tu solicitud con el mayor detalle posible..."
+                      value={solForm.detalle}
+                      onChange={e => setSolForm(f => ({ ...f, detalle: e.target.value }))}
+                    />
+                  </div>
+
+                  {/* Footer buttons */}
+                  <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 28 }}>
+                    <button onClick={closeSolicitud} style={{
+                      padding: "9px 20px", border: `1px solid ${COLORS.border}`, borderRadius: 6,
+                      background: "#fff", cursor: "pointer", fontSize: 13,
+                      color: COLORS.grayLight, fontFamily: B,
+                    }}>Cancelar</button>
+                    <button onClick={handleSolSave} disabled={!solForm.pantalla.trim() || !solForm.detalle.trim()} style={{
+                      padding: "9px 22px", border: "none", borderRadius: 6,
+                      background: (!solForm.pantalla.trim() || !solForm.detalle.trim()) ? "#CCC" : COLORS.red,
+                      color: "#fff", cursor: (!solForm.pantalla.trim() || !solForm.detalle.trim()) ? "not-allowed" : "pointer",
+                      fontSize: 13, fontWeight: 800, fontFamily: H,
+                    }}>Enviar solicitud</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
+        </SolicitudContext.Provider>
       </PermissionsContext.Provider>
     </CompanyContext.Provider>
   );

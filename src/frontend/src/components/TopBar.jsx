@@ -287,6 +287,7 @@ export default function TopBar({ user, company, brand, setCompany, setBrand }) {
       <div style={{ display: "flex", alignItems: "center" }}>
         {/* Logo */}
         <img
+          data-tour="logo"
           src="/logo.png" alt="GMI"
           style={{ height: 66, cursor: "pointer", flexShrink: 0, display: "block" }}
           onClick={() => navigate("/home")}
@@ -299,11 +300,11 @@ export default function TopBar({ user, company, brand, setCompany, setBrand }) {
         {/* Divider */}
         <div style={{ width: 1, height: 40, background: COLORS.border, margin: "0 20px", flexShrink: 0 }} />
         {/* Selectors */}
-        <select style={selStyle} value={company} onChange={e => setCompany(e.target.value)}>
+        <select data-tour="company-select" style={selStyle} value={company} onChange={e => setCompany(e.target.value)}>
           {COMPANIES.map(c => <option key={c} value={c}>{c}</option>)}
         </select>
         <div style={{ width: 8 }} />
-        <select style={selStyle} value={brand} onChange={e => setBrand(e.target.value)}>
+        <select data-tour="brand-select" style={selStyle} value={brand} onChange={e => setBrand(e.target.value)}>
           <option value="">Todas las marcas</option>
           {BRANDS.map(b => <option key={b} value={b}>{b}</option>)}
         </select>

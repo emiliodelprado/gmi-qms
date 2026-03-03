@@ -4,6 +4,21 @@ set -e
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 VENV="$ROOT/src/.venv"
 
+# ── Quick backend-only restart ────────────────────────────────────────────────
+if [ "$1" = "backend" ]; then
+  echo "▶ Reiniciando solo el backend..."
+  lsof -ti :8000 | xargs kill -9 2>/dev/null || true
+  sleep 1
+  cd "$ROOT/src"
+  set -a && source .env.local && set +a
+  echo "  DEV_MODE=$DEV_MODE"
+  "$VENV/bin/python" -m uvicorn main:app --reload --port 8000 &
+  echo "  Backend reiniciado (PID $!)"
+  echo "  http://localhost:8000/api/docs"
+  wait
+  exit 0
+fi
+
 echo "▶ Levantando PostgreSQL..."
 docker compose up -d db
 

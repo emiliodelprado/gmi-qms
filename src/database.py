@@ -1,8 +1,17 @@
 """Database engine and session factory."""
-import os
+import os, pathlib
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+
+# Auto-load .env.local when env vars are missing (e.g. manual server restart)
+_env_file = pathlib.Path(__file__).resolve().parent / ".env.local"
+if "DB_USER" not in os.environ and _env_file.exists():
+    for _line in _env_file.read_text().splitlines():
+        _line = _line.strip()
+        if _line and not _line.startswith("#") and "=" in _line:
+            _k, _v = _line.split("=", 1)
+            os.environ.setdefault(_k.strip(), _v.strip())
 
 DB_USER     = os.environ["DB_USER"]
 DB_PASSWORD = os.environ["DB_PASSWORD"]

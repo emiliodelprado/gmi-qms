@@ -4,7 +4,7 @@ import { COLORS, H, B, Icon } from "../constants.jsx";
 import { PermissionsContext } from "../contexts.jsx";
 
 // ─── Navigation tree ──────────────────────────────────────────────────────────
-const NAV_MODULES = [
+export const NAV_MODULES = [
   {
     id: "est", code: "EST", label: "Estrategia", icon: "strategy",
     fns: [
@@ -118,7 +118,8 @@ const NAV_MODULES = [
 
 const SYSTEM_NAV = [
   { id: "admin",     label: "Usuarios",  icon: "admin",    path: "/admin/usuarios", adminOnly: true },
-  { id: "changelog", label: "Novedades", icon: "changelog", path: "/novedades" },
+  { id: "changelog",    label: "Novedades",    icon: "changelog",  path: "/novedades" },
+  { id: "solicitudes",  label: "Solicitudes",  icon: "suggestion", path: "/solicitudes" },
 ];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
