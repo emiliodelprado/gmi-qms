@@ -1,12 +1,13 @@
 """
-copy_config_to_prod.py — Copia tablas de configuración de la BD local a producción.
+copy_datos_to_prod.py — Copia todos los datos de la BD local a producción,
+excepto las tablas de usuarios y seguridad.
 
-Tablas copiadas (configuración visual/estructural):
-  - corporate_entities   → estructura corporativa
+Tablas copiadas:
+  - corporate_entities   → estructura corporativa (debe ir primera: FK auto-referencial)
   - ui_brand_settings    → logos y colores de marca
+  - role_permissions     → matriz de roles y permisos
 
-Tablas NO copiadas (se gestionan directamente en producción):
-  - role_permissions     → matriz de permisos por rol
+Tablas NO copiadas (datos de usuario / seguridad, se gestionan en producción):
   - user_access          → usuarios y contraseñas
   - user_tenants         → asignaciones de tenant/rol
   - password_reset_tokens
@@ -27,10 +28,10 @@ INSTRUCCIONES DE USO
 3. Ejecuta este script (desde el directorio src/, con el venv activo):
 
      # Vista previa sin cambios:
-     TARGET_DB_PASSWORD=<contraseña> python copy_config_to_prod.py --dry-run
+     TARGET_DB_PASSWORD=<contraseña> python copy_datos_to_prod.py --dry-run
 
      # Ejecución real:
-     TARGET_DB_PASSWORD=<contraseña> python copy_config_to_prod.py
+     TARGET_DB_PASSWORD=<contraseña> python copy_datos_to_prod.py
 
 Variables de entorno para el target (defaults para Cloud SQL via proxy):
   TARGET_DB_HOST      (default: 127.0.0.1)
@@ -88,12 +89,13 @@ def _build_target_url() -> str:
 
 
 # ── Tables to copy, in insertion order ───────────────────────────────────────
-# corporate_entities must be first (self-referential FK, insert by id order)
-# NOTE: role_permissions, user_access, user_tenants and audit_log are
-#       intentionally excluded — they are managed directly in production.
+# corporate_entities must be first (self-referential FK, insert by id order).
+# Excluded: user_access, user_tenants, password_reset_tokens, audit_log
+#           (user data and security — managed directly in production).
 COPY_PLAN = [
     models.CorporateEntity,
     models.UIBrandSettings,
+    models.RolePermission,
 ]
 
 
@@ -157,7 +159,7 @@ def transfer(src_url: str, tgt_url: str, dry_run: bool = False) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Copia tablas de configuración de local a producción"
+        description="Copia datos de local a producción (excluye tablas de usuario)"
     )
     parser.add_argument(
         "--dry-run", action="store_true",
@@ -165,7 +167,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    print("▶ GMI QMS — Copia de configuración a producción")
+    print("▶ GMI QMS — Copia de datos a producción")
     print("=" * 52)
 
     src_url = _build_source_url()

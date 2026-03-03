@@ -148,7 +148,7 @@ const SECTIONS = [
       { label: "Estructura Corporativa editable",      detail: "Árbol jerárquico con Grupo, Entidades Legales y Marcas. CRUD completo con modal de edición y confirmación de borrado" },
       { label: "Página de inicio de sesión local",     detail: "Login.jsx sustituye la redirección automática a SAML. Permite autenticarse con credenciales locales sin configurar el IdP" },
       { label: "Personalización UI dinámica",          detail: "El selector de empresa y marca en ADM·UI se carga desde la estructura corporativa en lugar de una lista hardcodeada" },
-      { label: "copy_config_to_prod.py + .sh",         detail: "Scripts para copiar tablas de configuración (corporate_entities, ui_brand_settings, role_permissions) de local a producción via Cloud SQL Proxy" },
+      { label: "copy_datos_to_prod.py + .sh",           detail: "Scripts para copiar datos de local a producción via Cloud SQL Proxy: corporate_entities, ui_brand_settings, role_permissions (excluye tablas de usuarios y audit_log)" },
       { label: "Fix race condition en AdmUI",          detail: "Patrón cancelled flag en useEffect evita que respuestas tardías sobreescriban el estado de una entidad más reciente" },
     ],
   },

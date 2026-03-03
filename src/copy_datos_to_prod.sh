@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# copy_config_to_prod.sh — Copia tablas de configuración visual/estructural a producción.
+# copy_datos_to_prod.sh — Copia todos los datos de local a producción, excepto usuarios.
 #
-# Tablas copiadas:   corporate_entities, ui_brand_settings
-# Tablas excluidas:  role_permissions, user_access, user_tenants, audit_log
+# Tablas copiadas:   corporate_entities, ui_brand_settings, role_permissions
+# Tablas excluidas:  user_access, user_tenants, password_reset_tokens, audit_log
 #
 # Uso:
-#   ./copy_config_to_prod.sh           # ejecución real
-#   ./copy_config_to_prod.sh --dry-run # vista previa sin cambios
+#   ./copy_datos_to_prod.sh           # ejecución real
+#   ./copy_datos_to_prod.sh --dry-run # vista previa sin cambios
 #
 # Requisitos:
 #   - gcloud CLI autenticado (gcloud auth login)
@@ -122,4 +122,4 @@ echo "Ejecutando copia de configuracion..."
 echo ""
 
 cd "$SCRIPT_DIR"
-python copy_config_to_prod.py $DRY_RUN
+python copy_datos_to_prod.py $DRY_RUN
