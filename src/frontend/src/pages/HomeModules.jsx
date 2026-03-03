@@ -6,6 +6,15 @@ import GuidedTour from "../components/GuidedTour.jsx";
 const WELCOME_KEY = "qms_welcome_dismissed";
 const GUIDE_KEY   = "qms_guide_completed";
 
+// Darken a hex color by a factor (0–1) for gradient end
+function darkenHex(hex, factor = 0.3) {
+  const h = hex.replace("#", "");
+  const r = Math.round(parseInt(h.substring(0, 2), 16) * (1 - factor));
+  const g = Math.round(parseInt(h.substring(2, 4), 16) * (1 - factor));
+  const b = Math.round(parseInt(h.substring(4, 6), 16) * (1 - factor));
+  return `#${[r, g, b].map(v => v.toString(16).padStart(2, "0")).join("")}`;
+}
+
 const MODULES = [
   {
     id: "est", code: "EST", label: "Estrategia", icon: "strategy",
@@ -79,7 +88,7 @@ const MODULES = [
   },
 ];
 
-export default function HomeModules({ user }) {
+export default function HomeModules({ user, brandColor }) {
   const navigate = useNavigate();
   const [showWelcome, setShowWelcome] = useState(() => !sessionStorage.getItem(WELCOME_KEY));
   const [guideCompleted, setGuideCompleted] = useState(() => !!localStorage.getItem(GUIDE_KEY));
@@ -106,7 +115,7 @@ export default function HomeModules({ user }) {
       {showWelcome && (
         <div style={{
           position: "relative", marginBottom: 24, padding: "24px 48px 24px 24px",
-          background: "linear-gradient(135deg, #A91E22 0%, #7A1518 100%)",
+          background: `linear-gradient(135deg, ${brandColor || COLORS.red} 0%, ${darkenHex(brandColor || COLORS.red, 0.3)} 100%)`,
           borderRadius: 12, color: "#fff",
         }}>
           {/* Close button */}

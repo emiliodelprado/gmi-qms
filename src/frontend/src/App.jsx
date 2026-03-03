@@ -400,7 +400,7 @@ const Layout = ({ user }) => {
             <main style={{ flex: 1, padding: "28px 30px", overflow: "auto", background: COLORS.bg }}>
               <Routes>
                 <Route path="/"                  element={<Navigate to="/home" replace />} />
-                <Route path="/home"              element={<HomeModules user={user} />} />
+                <Route path="/home"              element={<HomeModules user={user} brandColor={brandColor} />} />
                 <Route path="/est/dash/v-exe"    element={<GuardedRoute screenId="v-exe"    element={<DashEjecutivo />} />} />
                 <Route path="/est/dash/v-obj"    element={<GuardedRoute screenId="v-obj"    element={<DashObjetivos />} />} />
                 <Route path="/est/cont/v-dafo"   element={<GuardedRoute screenId="v-dafo"   element={<ContDafo />} />} />

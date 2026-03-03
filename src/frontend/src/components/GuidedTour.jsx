@@ -102,6 +102,7 @@ export default function GuidedTour({ onClose }) {
   const [step, setStep] = useState(0);
   const [dragOffset, setDragOffset] = useState(null);
   const [pos, setPos] = useState(null); // { x, y } when dragged
+  const [targetRect, setTargetRect] = useState(null);
   const dragging = useRef(false);
   const cardRef = useRef(null);
 
@@ -110,7 +111,15 @@ export default function GuidedTour({ onClose }) {
   const isFirst = step === 0;
   const isLast  = step === TOUR_STEPS.length - 1;
 
-  // ── Highlight target element ──────────────────────────────────────────────
+  // ── Measure & highlight target element ────────────────────────────────────
+  const measure = useCallback(() => {
+    const el = document.querySelector(`[data-tour="${current.target}"]`);
+    if (el) {
+      const r = el.getBoundingClientRect();
+      setTargetRect({ top: r.top, left: r.left, width: r.width, height: r.height });
+    }
+  }, [current.target]);
+
   useEffect(() => {
     ensureHighlightStyle();
     const el = document.querySelector(`[data-tour="${current.target}"]`);
@@ -118,10 +127,16 @@ export default function GuidedTour({ onClose }) {
       el.classList.add(HIGHLIGHT_CLASS);
       el.scrollIntoView({ behavior: "smooth", block: "nearest" });
     }
+    const t = setTimeout(measure, 80);
+    window.addEventListener("resize", measure);
+    window.addEventListener("scroll", measure, true);
     return () => {
       if (el) el.classList.remove(HIGHLIGHT_CLASS);
+      clearTimeout(t);
+      window.removeEventListener("resize", measure);
+      window.removeEventListener("scroll", measure, true);
     };
-  }, [current.target]);
+  }, [current.target, measure]);
 
   // Reset drag position when step changes
   useEffect(() => { setPos(null); }, [step]);
@@ -169,27 +184,57 @@ export default function GuidedTour({ onClose }) {
     };
   }, [dragOffset]);
 
+  // ── Overlay spotlight geometry ────────────────────────────────────────────
+  const spotPad = 10;
+  const spot = targetRect ? {
+    top:    targetRect.top - spotPad,
+    left:   targetRect.left - spotPad,
+    width:  targetRect.width + spotPad * 2,
+    height: targetRect.height + spotPad * 2,
+  } : null;
+
   // ── Default position: centered in header area ─────────────────────────────
   const defaultStyle = pos
     ? { position: "fixed", left: pos.x, top: pos.y }
     : { position: "fixed", top: 70, left: "50%", transform: "translateX(-50%)" };
 
   return (
-    <div
-      ref={cardRef}
-      onPointerDown={onPointerDown}
-      style={{
-        ...defaultStyle,
-        width: 420, maxWidth: "calc(100vw - 32px)",
-        background: COLORS.white, borderRadius: 12,
-        boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
-        overflow: "hidden",
-        zIndex: 10000,
-        cursor: dragging.current ? "grabbing" : "grab",
-        userSelect: "none",
-        touchAction: "none",
-      }}
-    >
+    <>
+      {/* Soft dark overlay with spotlight cutout */}
+      {spot && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, pointerEvents: "none" }}>
+          {/* Top */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: Math.max(0, spot.top), background: "rgba(0,0,0,0.25)" }} />
+          {/* Bottom */}
+          <div style={{ position: "absolute", top: spot.top + spot.height, left: 0, right: 0, bottom: 0, background: "rgba(0,0,0,0.25)" }} />
+          {/* Left */}
+          <div style={{ position: "absolute", top: spot.top, left: 0, width: Math.max(0, spot.left), height: spot.height, background: "rgba(0,0,0,0.25)" }} />
+          {/* Right */}
+          <div style={{ position: "absolute", top: spot.top, left: spot.left + spot.width, right: 0, height: spot.height, background: "rgba(0,0,0,0.25)" }} />
+          {/* Spotlight border */}
+          <div style={{
+            position: "absolute", top: spot.top, left: spot.left, width: spot.width, height: spot.height,
+            borderRadius: 10, border: "2px solid rgba(255,255,255,0.5)",
+          }} />
+        </div>
+      )}
+
+      {/* Draggable tooltip card */}
+      <div
+        ref={cardRef}
+        onPointerDown={onPointerDown}
+        style={{
+          ...defaultStyle,
+          width: 420, maxWidth: "calc(100vw - 32px)",
+          background: COLORS.white, borderRadius: 12,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+          overflow: "hidden",
+          zIndex: 10000,
+          cursor: dragging.current ? "grabbing" : "grab",
+          userSelect: "none",
+          touchAction: "none",
+        }}
+      >
       {/* Drag hint bar */}
       <div style={{
         height: 5, display: "flex", justifyContent: "center", alignItems: "center",
@@ -200,42 +245,10 @@ export default function GuidedTour({ onClose }) {
         }} />
       </div>
 
-      {/* Phase intro banner (only on first step of each phase) */}
-      {current.phaseIntro && (
-        <div style={{ background: phase.bg, padding: "12px 20px", borderBottom: `1px solid ${phase.color}22` }}>
-          <div style={{ fontSize: 10, fontWeight: 800, color: phase.color, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: H, marginBottom: 4 }}>
-            {phase.label}
-          </div>
-          <div style={{ fontSize: 12, color: COLORS.gray, fontFamily: B, lineHeight: 1.5 }}>
-            {current.phaseIntro}
-          </div>
-        </div>
-      )}
-
-      {/* Main content */}
-      <div style={{ padding: "14px 20px 16px" }}>
-        {/* Phase badge (when no intro banner) */}
-        {!current.phaseIntro && (
-          <span style={{
-            display: "inline-block", padding: "2px 10px", borderRadius: 20, marginBottom: 8,
-            background: phase.bg, color: phase.color, fontSize: 10, fontWeight: 800, fontFamily: H,
-          }}>
-            {phase.label}
-          </span>
-        )}
-
-        <h3 style={{ margin: current.phaseIntro ? 0 : "0 0 6px", fontSize: 15, fontWeight: 800, color: COLORS.gray, fontFamily: H }}>
-          {current.title}
-        </h3>
-        <p style={{ fontSize: 13, color: COLORS.grayLight, fontFamily: B, lineHeight: 1.6, margin: "8px 0 0" }}>
-          {current.desc}
-        </p>
-      </div>
-
-      {/* Footer: counter + nav buttons */}
+      {/* Header: progress dots + nav buttons */}
       <div style={{
         display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "10px 20px", borderTop: `1px solid ${COLORS.border}`, background: "#FAFAFA",
+        padding: "10px 20px", borderBottom: `1px solid ${COLORS.border}`, background: "#FAFAFA",
       }}>
         {/* Step progress dots */}
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -277,6 +290,39 @@ export default function GuidedTour({ onClose }) {
           </button>
         </div>
       </div>
+
+      {/* Phase intro banner (only on first step of each phase) */}
+      {current.phaseIntro && (
+        <div style={{ background: phase.bg, padding: "12px 20px", borderBottom: `1px solid ${phase.color}22` }}>
+          <div style={{ fontSize: 10, fontWeight: 800, color: phase.color, textTransform: "uppercase", letterSpacing: "0.08em", fontFamily: H, marginBottom: 4 }}>
+            {phase.label}
+          </div>
+          <div style={{ fontSize: 12, color: COLORS.gray, fontFamily: B, lineHeight: 1.5 }}>
+            {current.phaseIntro}
+          </div>
+        </div>
+      )}
+
+      {/* Main content */}
+      <div style={{ padding: "14px 20px 16px" }}>
+        {/* Phase badge (when no intro banner) */}
+        {!current.phaseIntro && (
+          <span style={{
+            display: "inline-block", padding: "2px 10px", borderRadius: 20, marginBottom: 8,
+            background: phase.bg, color: phase.color, fontSize: 10, fontWeight: 800, fontFamily: H,
+          }}>
+            {phase.label}
+          </span>
+        )}
+
+        <h3 style={{ margin: current.phaseIntro ? 0 : "0 0 6px", fontSize: 15, fontWeight: 800, color: COLORS.gray, fontFamily: H }}>
+          {current.title}
+        </h3>
+        <p style={{ fontSize: 13, color: COLORS.grayLight, fontFamily: B, lineHeight: 1.6, margin: "8px 0 0" }}>
+          {current.desc}
+        </p>
+      </div>
     </div>
+    </>
   );
 }
