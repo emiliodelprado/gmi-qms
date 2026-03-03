@@ -2,13 +2,55 @@ import { COLORS, H, B } from "../constants.jsx";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 const RELEASE = {
-  version: "0.3.0",
-  date:    "1 marzo 2026",
-  title:   "Administración operativa completa",
-  summary: "Tercera versión del GMI Quality Management System. Consolida la capa de administración conectando al backend real la Matriz de Roles y Permisos y el Registro de Actividad, añade la Política de Calidad al catálogo de pantallas, incorpora un buscador global de pantallas en la cabecera y corrige múltiples errores en la gestión multi-tenant y en la aplicación del branding por entidad.",
+  version: "0.4.0",
+  date:    "3 marzo 2026",
+  title:   "Solicitudes, guía interactiva y herramientas de desarrollo",
+  summary: "Cuarta versión del GMI Quality Management System. Incorpora la página de Solicitudes para que cualquier usuario pueda reportar peticiones, errores y sugerencias, con gestión avanzada para el rol IT/admin. Añade una guía interactiva contextual de 10 pasos que recorre la cabecera y los 7 módulos agrupados por fases PDCA, con tarjetas draggable y persistencia en localStorage. Incluye nuevas herramientas de desarrollo: stop-dev.sh, copia de configuración desde producción y modo backend-only en start-dev.sh.",
 };
 
 const SECTIONS = [
+  {
+    icon: "📋",
+    color: COLORS.red,
+    bg:    "#FFEBEE",
+    title: "Solicitudes",
+    subtitle: "Peticiones, errores y sugerencias",
+    items: [
+      { label: "Página de Solicitudes",              detail: "Listado completo con filtros por estado (enviada, leída, en proceso, resuelta, descartada). Accesible para todos los usuarios desde el menú lateral" },
+      { label: "Gestión IT/admin",                    detail: "El rol IT puede cambiar el estado de cada solicitud, añadir comentarios de administrador y eliminar solicitudes" },
+      { label: "Botón lateral flotante",              detail: "Botón vertical 'Nueva solicitud' siempre visible en el lateral derecho de la pantalla. Abre un drawer global con el campo Pantalla auto-poblado según la pantalla actual" },
+      { label: "Drawer global de nueva solicitud",    detail: "Panel deslizante desde la derecha (520 px) con selector de pantalla agrupado por módulos y campo de detalle. Disponible desde cualquier parte de la aplicación" },
+      { label: "Smart defaults en Pantalla",          detail: "Desde el botón lateral: pantalla actual. Desde la página de Solicitudes: pantalla anterior. Catálogo completo de 30 pantallas organizado por módulo" },
+    ],
+  },
+  {
+    icon: "🧭",
+    color: "#E65100",
+    bg:    "#FFF3E0",
+    title: "Guía interactiva contextual",
+    subtitle: "10 pasos · 5 secciones PDCA",
+    items: [
+      { label: "Tour de 10 pasos",                   detail: "Recorre la cabecera (logo, selector de empresa, filtro de marca) y los 7 módulos agrupados por fases PDCA: Plan, Do, Check, Act" },
+      { label: "Tarjeta flotante draggable",          detail: "La tarjeta del paso actual aparece en la zona superior sin overlay oscuro. Se puede arrastrar a cualquier posición si obstaculiza la vista" },
+      { label: "Highlight del elemento objetivo",     detail: "Cada paso resalta el elemento correspondiente con un borde rojo. El elemento se hace scroll-into-view automáticamente" },
+      { label: "Badges de fase con intro",            detail: "Cada fase PDCA tiene un color distintivo y un banner introductorio que explica su propósito en el primer paso de la fase" },
+      { label: "Persistencia y activación",           detail: "El estado de completado se guarda en localStorage. Card de invitación para nuevos usuarios y botón 'Repetir guía' para usuarios que ya la completaron" },
+      { label: "Navegación por teclado",              detail: "Flechas izquierda/derecha para avanzar/retroceder, Escape para cerrar. Indicador visual con dots de progreso por fase" },
+    ],
+  },
+  {
+    icon: "🛠️",
+    color: "#00695C",
+    bg:    "#E0F2F1",
+    title: "Herramientas de desarrollo v0.4.0",
+    subtitle: "Scripts · Base de datos · Configuración",
+    items: [
+      { label: "stop-dev.sh",                        detail: "Script complementario a start-dev.sh. Detiene backend (puerto 8000), frontend (puerto 3001) y PostgreSQL (docker compose)" },
+      { label: "start-dev.sh backend",                detail: "Nuevo modo backend-only: reinicia solo el servidor FastAPI sin tocar la base de datos ni el frontend" },
+      { label: "copy_config_from_prod",               detail: "Scripts Python y Bash para copiar tablas de configuración (corporate_entities, ui_brand_settings, quality_policies, role_permissions) desde producción a local via Cloud SQL Proxy" },
+      { label: "Auto-carga .env.local en database.py", detail: "Si las variables de entorno DB_USER/DB_PASSWORD no están definidas, database.py carga automáticamente src/.env.local al iniciar" },
+    ],
+  },
   {
     icon: "🗂️",
     color: "#1565C0",
@@ -174,7 +216,7 @@ export default function Novedades() {
           <div style={{ textAlign: "right", flexShrink: 0 }}>
             <div style={{ fontSize: 11, color: COLORS.grayLight, fontFamily: B }}>{RELEASE.date}</div>
             <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              {["7 módulos", "30 pantallas", "FastAPI", "PostgreSQL", "Argon2id", "Multi-tenant"].map(t => (
+              {["Solicitudes", "Guía PDCA", "Draggable", "stop-dev.sh", "7 módulos", "30 pantallas"].map(t => (
                 <Tag key={t} label={t} bg="#F5F5F5" color={COLORS.grayLight} />
               ))}
             </div>
@@ -213,7 +255,7 @@ export default function Novedades() {
 
       {/* Footer note */}
       <div style={{ marginTop: 24, padding: "14px 20px", background: "#FFFBEB", border: "1px solid #FCD34D", borderRadius: 8, fontSize: 12, color: "#92400E", fontFamily: B }}>
-        <strong>Próximas versiones:</strong> implementación de contenido real en pantallas pendientes (RSG, OPE, TAL, SOP, MEJ), configuración del IdP OneLogin para SSO SAML 2.0, notificaciones y alertas en tiempo real.
+        <strong>Próximas versiones:</strong> implementación de contenido real en pantallas pendientes (RSG, OPE, TAL, SOP, MEJ), conexión de Solicitudes al backend con persistencia, configuración del IdP OneLogin para SSO SAML 2.0, notificaciones y alertas en tiempo real.
       </div>
     </div>
   );

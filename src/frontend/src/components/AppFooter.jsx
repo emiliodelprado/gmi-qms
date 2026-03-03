@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { COLORS, H, B } from "../constants.jsx";
 
-const _appVersion = "0.3.0";
+const _appVersion = "0.4.0";
 const _buildDate  = import.meta.env.BUILD_DATE
   ? new Date(import.meta.env.BUILD_DATE).toLocaleString("es-ES", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })
   : "—";
