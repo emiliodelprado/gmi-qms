@@ -113,6 +113,11 @@ COPY_PLAN = [
     models.CollaboratorEntityPosition,
 ]
 
+# Columns to nullify when copying (FK refs to tables NOT copied, e.g. user_access)
+NULLIFY_COLUMNS = {
+    "collaborators": ["user_id"],
+}
+
 
 def transfer(src_url: str, tgt_url: str, dry_run: bool = False) -> None:
     print(f"  Origen  (prod) : {src_url.split('@')[-1]}")
@@ -157,7 +162,10 @@ def transfer(src_url: str, tgt_url: str, dry_run: bool = False) -> None:
                 print(f"  ✓  {tname}: 0 filas (skip)")
                 continue
 
+            nullify = NULLIFY_COLUMNS.get(tname, [])
             for row_dict in dicts:
+                if nullify:
+                    row_dict = {**row_dict, **{col: None for col in nullify}}
                 tgt_db.execute(model.__table__.insert().values(**row_dict))
 
             # Advance the sequence so future inserts don't collide

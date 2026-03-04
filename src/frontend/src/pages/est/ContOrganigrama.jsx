@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { COLORS, H, B, getInitials, PageHeader, Card, apiFetch } from "../../constants.jsx";
 
 // ── Constants ───────────────────────────────────────────────────────────────────
@@ -12,18 +12,16 @@ function avatarColor(name) {
 }
 
 // ── PersonCard ──────────────────────────────────────────────────────────────────
-function PersonCard({ collab, assignment, supervisorName }) {
+function PersonCard({ collab, brands, puestos, supervisorName }) {
   const full = `${collab.nombre} ${collab.apellidos}`;
   const clr = avatarColor(full);
-  const puestos = assignment.puestos || [];
 
   return (
     <div
-      data-collab-id={collab.id}
       style={{
         background: "#fff", border: `1.5px solid ${COLORS.border}`, borderRadius: 10,
         padding: "12px 14px", minWidth: 155, maxWidth: 220, textAlign: "center",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.05)", position: "relative",
+        boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }}
     >
       <div style={{
@@ -37,6 +35,18 @@ function PersonCard({ collab, assignment, supervisorName }) {
       <div style={{ fontSize: 12, fontWeight: 800, color: COLORS.gray, fontFamily: H, lineHeight: 1.3 }}>
         {full}
       </div>
+      {brands.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 3, justifyContent: "center", marginTop: 3 }}>
+          {brands.map(code => (
+            <span key={code} style={{
+              fontSize: 8, fontWeight: 800, color: "#6A1B9A", background: "#F3E5F5",
+              padding: "1px 7px", borderRadius: 8, fontFamily: H,
+            }}>
+              {code}
+            </span>
+          ))}
+        </div>
+      )}
       {puestos.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 3, justifyContent: "center", marginTop: 6 }}>
           {puestos.map(p => (
@@ -66,16 +76,14 @@ function PersonCard({ collab, assignment, supervisorName }) {
 
 // ── Main ────────────────────────────────────────────────────────────────────────
 export default function ContOrganigrama() {
-  const [entities, setEntities]   = useState([]);
-  const [entityId, setEntityId]   = useState(null);
-  const [collabs, setCollabs]     = useState([]);
-  const [depts, setDepts]         = useState([]);
-  const [positions, setPositions] = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [error, setError]         = useState("");
-  const containerRef              = useRef(null);
-  const [lines, setLines]         = useState([]);
-  const [svgSize, setSvgSize]     = useState({ w: 0, h: 0 });
+  const [entities, setEntities]       = useState([]);
+  const [entityId, setEntityId]       = useState(null);
+  const [activeBrands, setActiveBrands] = useState(new Set());
+  const [collabs, setCollabs]         = useState([]);
+  const [depts, setDepts]             = useState([]);
+  const [positions, setPositions]     = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [error, setError]             = useState("");
 
   /* ── fetch ─────────────────────────────────────────────────────────────────── */
   useEffect(() => {
@@ -85,30 +93,65 @@ export default function ContOrganigrama() {
       apiFetch("/api/adm/departments").then(r => r.ok ? r.json() : []),
       apiFetch("/api/adm/positions").then(r => r.ok ? r.json() : []),
     ]).then(([ents, cols, deps, pos]) => {
-      const selectable = ents.filter(e => e.tipo !== "Grupo" && e.activo);
-      setEntities(selectable);
+      setEntities(ents.filter(e => e.activo));
       setCollabs(cols);
       setDepts(deps);
       setPositions(pos);
-      if (selectable.length) setEntityId(selectable[0].id);
+      const legal = ents.filter(e => e.tipo === "Entidad Legal" && e.activo);
+      if (legal.length) setEntityId(legal[0].id);
     }).catch(() => setError("Error al cargar los datos."))
       .finally(() => setLoading(false));
   }, []);
 
+  // Selector: only Entidad Legal
+  const selectorEntities = entities.filter(e => e.tipo === "Entidad Legal");
+
+  // Child brands of the selected entity
+  const childBrands = useMemo(
+    () => entities.filter(e => e.parent_id === entityId && e.tipo === "Marca"),
+    [entities, entityId],
+  );
+
+  // Reset activeBrands when entity changes (all on by default)
+  useEffect(() => {
+    setActiveBrands(new Set(childBrands.map(b => b.id)));
+  }, [childBrands]);
+
+  const toggleBrand = (brandId) => {
+    setActiveBrands(prev => {
+      const next = new Set(prev);
+      if (next.has(brandId)) next.delete(brandId); else next.add(brandId);
+      return next;
+    });
+  };
+
   /* ── process ───────────────────────────────────────────────────────────────── */
   const chartData = useMemo(() => {
-    if (!entityId) return { deptGroups: [], unassigned: [], supervisorPairs: [] };
+    if (!entityId) return { deptGroups: [], unassigned: [], uniqueCount: 0 };
 
     const posMap  = new Map();
     positions.forEach(p => posMap.set(p.id, p));
     const deptMap = new Map();
     depts.forEach(d => deptMap.set(d.id, d));
 
-    // collaborators with an assignment in this entity
+    const childBrandIds = new Set(childBrands.map(b => b.id));
+
+    // Collect all relevant assignments: entity-level + brand-level
+    // Both are included; merge() will consolidate per person per department
     const entityCollabs = [];
+    const seen = new Set();
     collabs.forEach(c => {
-      const ea = c.entity_assignments?.find(a => a.entity_id === entityId);
-      if (ea) entityCollabs.push({ collab: c, assignment: ea });
+      const entityAssign = c.entity_assignments?.find(a => a.entity_id === entityId);
+      const brandAssigns = c.entity_assignments?.filter(a => activeBrands.has(a.entity_id)) || [];
+
+      if (entityAssign) {
+        entityCollabs.push({ collab: c, assignment: entityAssign });
+        seen.add(c.id);
+      }
+      brandAssigns.forEach(ba => {
+        entityCollabs.push({ collab: c, assignment: ba });
+        seen.add(c.id);
+      });
     });
 
     // group by department
@@ -116,87 +159,169 @@ export default function ContOrganigrama() {
     const unassigned = [];
 
     entityCollabs.forEach(({ collab, assignment }) => {
-      const deptIds = new Set();
+      // Map each dept → position ids that link to it
+      const deptPosIds = new Map();
       (assignment.position_ids || []).forEach(pid => {
         const p = posMap.get(pid);
-        if (p) (p.departamento_ids || []).forEach(did => deptIds.add(did));
+        if (p) (p.departamento_ids || []).forEach(did => {
+          if (!deptPosIds.has(did)) deptPosIds.set(did, new Set());
+          deptPosIds.get(did).add(pid);
+        });
       });
 
-      if (deptIds.size === 0) { unassigned.push({ collab, assignment }); return; }
+      if (deptPosIds.size === 0) { unassigned.push({ collab, assignment }); return; }
 
-      let bestDept = null, bestNivel = Infinity;
-      deptIds.forEach(did => {
+      // Place collaborator in ALL departments, but only with relevant positions
+      let placed = false;
+      deptPosIds.forEach((posIds, did) => {
         const d = deptMap.get(did);
-        if (d && d.nivel < bestNivel) { bestDept = d; bestNivel = d.nivel; }
+        if (d) {
+          if (!grouped.has(d.id)) grouped.set(d.id, []);
+          const relevantPuestos = (assignment.puestos || []).filter(p => posIds.has(p.id));
+          grouped.get(d.id).push({ collab, assignment, relevantPuestos });
+          placed = true;
+        }
       });
-
-      if (bestDept) {
-        if (!grouped.has(bestDept.id)) grouped.set(bestDept.id, []);
-        grouped.get(bestDept.id).push({ collab, assignment });
-      } else {
-        unassigned.push({ collab, assignment });
-      }
+      if (!placed) unassigned.push({ collab, assignment });
     });
+
+    // Merge multiple assignments for the same person into one card
+    // Uses relevantPuestos (dept-filtered) when available, falls back to all puestos for unassigned
+    const merge = (entries) => {
+      const byId = new Map();
+      entries.forEach(({ collab, assignment, relevantPuestos }) => {
+        if (!byId.has(collab.id)) {
+          byId.set(collab.id, { collab, brands: [], puestos: [], seenPos: new Set(), supervisorName: null });
+        }
+        const m = byId.get(collab.id);
+        if (childBrandIds.has(assignment.entity_id)) m.brands.push(assignment.entity_code);
+        (relevantPuestos || assignment.puestos || []).forEach(p => {
+          if (!m.seenPos.has(p.id)) { m.seenPos.add(p.id); m.puestos.push(p); }
+        });
+        if (assignment.supervisor_nombre && !m.supervisorName) m.supervisorName = assignment.supervisor_nombre;
+      });
+      return [...byId.values()];
+    };
 
     const deptGroups = [...grouped.entries()]
-      .map(([id, members]) => ({ dept: deptMap.get(id), members }))
+      .map(([id, members]) => ({ dept: deptMap.get(id), members: merge(members) }))
       .sort((a, b) => (a.dept.nivel - b.dept.nivel) || a.dept.nombre.localeCompare(b.dept.nombre));
 
-    // supervisor → subordinate pairs (both must be in this entity)
-    const idSet = new Set(entityCollabs.map(ec => ec.collab.id));
-    const supervisorPairs = [];
-    entityCollabs.forEach(({ collab, assignment }) => {
-      if (assignment.supervisor_id && idSet.has(assignment.supervisor_id))
-        supervisorPairs.push({ supId: assignment.supervisor_id, subId: collab.id });
+    return { deptGroups, unassigned: merge(unassigned), uniqueCount: seen.size };
+  }, [entityId, collabs, depts, positions, entities, childBrands, activeBrands]);
+
+  /* ── PDF ───────────────────────────────────────────────────────────────────── */
+  const handlePrint = async () => {
+    if (!selectedEntity || chartData.uniqueCount === 0) return;
+
+    // Fetch entity logo
+    let entityLogoHtml = "";
+    try {
+      const r = await apiFetch(`/api/adm/ui/brand-settings?company_id=${selectedEntity.code}&brand_id=`);
+      if (r.ok) {
+        const s = await r.json();
+        if (s?.logo_data) entityLogoHtml = `<img src="${s.logo_data}" alt="" style="height:52px;max-width:180px;object-fit:contain;"/>`;
+      }
+    } catch {}
+
+    const today = new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "long", year: "numeric" });
+
+    const NCLR = { 0: "#A91E22", 1: "#E65100", 2: "#1565C0", 3: "#2E7D32", 4: "#888888" };
+    const NLBL = { 0: "Corporativo", 1: "Dirección", 2: "Área", 3: "Sección", 4: "Operacional" };
+
+    const cardHtml = (m) => {
+      const full = `${m.collab.nombre} ${m.collab.apellidos}`;
+      const clr = avatarColor(full);
+      const initials = getInitials(full);
+      const brandsHtml = m.brands.length
+        ? `<div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:3px;">${m.brands.map(c => `<span style="font-size:7px;font-weight:800;color:#6A1B9A;background:#F3E5F5;padding:1px 6px;border-radius:6px;">${c}</span>`).join("")}</div>`
+        : "";
+      const puestosHtml = m.puestos.length
+        ? `<div style="display:flex;flex-wrap:wrap;gap:3px;justify-content:center;margin-top:5px;">${m.puestos.map(p => `<span style="font-size:8px;font-weight:700;color:#888;background:#f5f5f5;padding:2px 6px;border-radius:6px;">${p.nombre}</span>`).join("")}</div>`
+        : "";
+      const supHtml = m.supervisorName ? `<div style="font-size:8px;color:#aaa;margin-top:5px;">↑ ${m.supervisorName}</div>` : "";
+      return `<div style="background:#fff;border:1.5px solid #e8e8e8;border-radius:8px;padding:10px 12px;text-align:center;min-width:130px;max-width:180px;break-inside:avoid;">
+        <div style="width:32px;height:32px;border-radius:50%;background:${clr}22;border:2px solid ${clr}44;display:flex;align-items:center;justify-content:center;margin:0 auto 6px;font-size:11px;font-weight:800;color:${clr};">${initials}</div>
+        <div style="font-size:11px;font-weight:800;color:#333;line-height:1.3;">${full}</div>
+        ${brandsHtml}${puestosHtml}${supHtml}
+      </div>`;
+    };
+
+    let deptsHtml = "";
+    let lastNivel = null;
+    chartData.deptGroups.forEach(({ dept, members }) => {
+      const nc = NCLR[dept.nivel] || "#888";
+      const nl = NLBL[dept.nivel] || `Nivel ${dept.nivel}`;
+      if (dept.nivel !== lastNivel) {
+        deptsHtml += `<div style="display:flex;align-items:center;gap:8px;margin:${lastNivel === null ? "0" : "20px"} 0 8px;">
+          <div style="width:18px;height:2px;background:${nc};border-radius:1px;"></div>
+          <span style="font-size:9px;font-weight:800;color:${nc};text-transform:uppercase;letter-spacing:0.1em;">Nivel ${dept.nivel} · ${nl}</span>
+          <div style="flex:1;height:1px;background:${nc}30;"></div>
+        </div>`;
+        lastNivel = dept.nivel;
+      }
+      deptsHtml += `<div style="margin-bottom:8px;border:1px solid #e8e8e8;border-left:4px solid ${nc};border-radius:8px;padding:12px 14px;">
+        <div style="font-size:11px;font-weight:800;color:#333;margin-bottom:8px;">${dept.nombre} <span style="font-size:9px;font-weight:500;color:#aaa;">(${members.length})</span></div>
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">${members.map(cardHtml).join("")}</div>
+      </div>`;
     });
 
-    return { deptGroups, unassigned, supervisorPairs };
-  }, [entityId, collabs, depts, positions]);
+    if (chartData.unassigned.length > 0) {
+      deptsHtml += `<div style="display:flex;align-items:center;gap:8px;margin:20px 0 8px;">
+        <div style="width:18px;height:2px;background:#ccc;border-radius:1px;"></div>
+        <span style="font-size:9px;font-weight:800;color:#aaa;text-transform:uppercase;letter-spacing:0.1em;">Sin departamento asignado</span>
+        <div style="flex:1;height:1px;background:#e0e0e0;"></div>
+      </div>
+      <div style="border:1px solid #e8e8e8;border-left:4px solid #ccc;border-radius:8px;padding:12px 14px;">
+        <div style="display:flex;flex-wrap:wrap;gap:10px;">${chartData.unassigned.map(cardHtml).join("")}</div>
+      </div>`;
+    }
 
-  /* ── SVG lines ─────────────────────────────────────────────────────────────── */
-  const updateLines = useCallback(() => {
-    const ct = containerRef.current;
-    if (!ct || !chartData.supervisorPairs?.length) { setLines([]); return; }
+    const footerParts = [
+      selectedEntity.denominacion_social,
+      selectedEntity.domicilio_social,
+      selectedEntity.nif ? `NIF: ${selectedEntity.nif}` : null,
+    ].filter(Boolean);
 
-    setSvgSize({ w: ct.scrollWidth, h: ct.scrollHeight });
-    const cr = ct.getBoundingClientRect();
-    const nl = [];
-
-    chartData.supervisorPairs.forEach(({ supId, subId }) => {
-      const se = ct.querySelector(`[data-collab-id="${supId}"]`);
-      const be = ct.querySelector(`[data-collab-id="${subId}"]`);
-      if (!se || !be) return;
-      const sr = se.getBoundingClientRect();
-      const br = be.getBoundingClientRect();
-      nl.push({
-        x1: sr.left + sr.width / 2 - cr.left + ct.scrollLeft,
-        y1: sr.bottom - cr.top + ct.scrollTop,
-        x2: br.left + br.width / 2 - cr.left + ct.scrollLeft,
-        y2: br.top - cr.top + ct.scrollTop,
-      });
-    });
-    setLines(nl);
-  }, [chartData.supervisorPairs]);
-
-  useEffect(() => {
-    const t = setTimeout(updateLines, 120);
-    return () => clearTimeout(t);
-  }, [updateLines, entityId]);
-
-  useEffect(() => {
-    const ct = containerRef.current;
-    if (!ct) return;
-    const ro = new ResizeObserver(updateLines);
-    ro.observe(ct);
-    window.addEventListener("resize", updateLines);
-    return () => { ro.disconnect(); window.removeEventListener("resize", updateLines); };
-  }, [updateLines]);
+    const win = window.open("", "_blank", "width=1000,height=800");
+    win.document.write(`<!DOCTYPE html><html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Organigrama · ${selectedEntity.label}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;600;700;800&display=swap');
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Nunito Sans', Arial, sans-serif; color: #333; background: #fff; }
+    .page { max-width: 800px; margin: 0 auto; padding: 40px 48px; }
+    .doc-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 3px solid #ac2523; padding-bottom: 14px; margin-bottom: 20px; }
+    .footer { margin-top: 32px; padding-top: 12px; border-top: 1px solid #eee; font-size: 9px; color: #aaa; text-align: center; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .page { padding: 20px 32px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="doc-header">
+      <img src="/logo.png" alt="GMI" style="height:48px;"/>
+      ${entityLogoHtml}
+    </div>
+    <div style="margin-bottom:20px;">
+      <div style="font-size:18px;font-weight:800;color:#1a1a1a;margin-bottom:3px;">Organigrama</div>
+      <div style="font-size:11px;color:#888;letter-spacing:0.06em;text-transform:uppercase;">${selectedEntity.label} · ${today}</div>
+    </div>
+    ${deptsHtml}
+    ${footerParts.length ? `<div class="footer">${footerParts.join(" · ")}</div>` : ""}
+  </div>
+  <script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};</script>
+</body></html>`);
+    win.document.close();
+  };
 
   /* ── render helpers ────────────────────────────────────────────────────────── */
-  const selectedEntity = entities.find(e => e.id === entityId);
-  const totalPersons =
-    (chartData.deptGroups?.reduce((s, g) => s + g.members.length, 0) || 0) +
-    (chartData.unassigned?.length || 0);
+  const selectedEntity = selectorEntities.find(e => e.id === entityId);
+  const totalPersons = chartData.uniqueCount || 0;
 
   const sel = {
     padding: "8px 12px", border: `1px solid ${COLORS.border}`, borderRadius: 7,
@@ -217,9 +342,9 @@ export default function ContOrganigrama() {
           Entidad
         </span>
         <select style={sel} value={entityId || ""} onChange={e => setEntityId(Number(e.target.value))}>
-          {entities.map(ent => (
+          {selectorEntities.map(ent => (
             <option key={ent.id} value={ent.id}>
-              {ent.label} ({ent.code}) — {ent.tipo}
+              {ent.label} ({ent.code})
             </option>
           ))}
         </select>
@@ -228,7 +353,47 @@ export default function ContOrganigrama() {
             {totalPersons} {totalPersons === 1 ? "persona" : "personas"} · {chartData.deptGroups?.length || 0} dptos.
           </span>
         )}
+        {!loading && totalPersons > 0 && (
+          <button onClick={handlePrint} style={{
+            marginLeft: "auto", padding: "7px 16px", background: "#A91E22", color: "#fff",
+            border: "none", borderRadius: 7, fontSize: 11, fontWeight: 700, fontFamily: H,
+            cursor: "pointer", display: "flex", alignItems: "center", gap: 5,
+          }}>
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="#fff" strokeWidth="1.8">
+              <path d="M6 1v7M3 6l3 3 3-3" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M1 10h10" strokeLinecap="round"/>
+            </svg>
+            PDF
+          </button>
+        )}
       </div>
+
+      {/* Brand toggles */}
+      {childBrands.length > 0 && (
+        <div style={{ display: "flex", gap: 8, marginBottom: 20, alignItems: "center", flexWrap: "wrap" }}>
+          <span style={{
+            fontSize: 10, fontWeight: 800, color: COLORS.grayLight, fontFamily: H,
+            textTransform: "uppercase", letterSpacing: "0.07em",
+          }}>
+            Marcas
+          </span>
+          {childBrands.map(b => {
+            const on = activeBrands.has(b.id);
+            return (
+              <button key={b.id} onClick={() => toggleBrand(b.id)} style={{
+                padding: "5px 14px", borderRadius: 20, cursor: "pointer",
+                fontSize: 11, fontWeight: 700, fontFamily: H, letterSpacing: "0.02em",
+                border: `1.5px solid ${on ? "#6A1B9A" : COLORS.border}`,
+                background: on ? "#F3E5F5" : "#fff",
+                color: on ? "#6A1B9A" : COLORS.grayLight,
+                transition: "all 0.15s ease",
+              }}>
+                {b.label} ({b.code})
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {error && (
         <div style={{
@@ -250,26 +415,7 @@ export default function ContOrganigrama() {
           </div>
         </Card>
       ) : (
-        <div ref={containerRef} style={{ position: "relative", overflowX: "auto" }}>
-          {/* SVG connector lines */}
-          {lines.length > 0 && (
-            <svg
-              style={{ position: "absolute", top: 0, left: 0, pointerEvents: "none", zIndex: 1 }}
-              width={svgSize.w || "100%"}
-              height={svgSize.h || "100%"}
-            >
-              {lines.map((l, i) => {
-                const my = (l.y1 + l.y2) / 2;
-                return (
-                  <path key={i}
-                    d={`M${l.x1},${l.y1} C${l.x1},${my} ${l.x2},${my} ${l.x2},${l.y2}`}
-                    fill="none" stroke={`${COLORS.red}35`} strokeWidth={2} strokeDasharray="6 3"
-                  />
-                );
-              })}
-            </svg>
-          )}
-
+        <div>
           {/* Department sections */}
           {chartData.deptGroups.map(({ dept, members }, idx) => {
             const nc = NIVEL_COLORS[dept.nivel] || NIVEL_COLORS[4];
@@ -310,12 +456,13 @@ export default function ContOrganigrama() {
                     </span>
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                    {members.map(({ collab, assignment }) => (
+                    {members.map(m => (
                       <PersonCard
-                        key={collab.id}
-                        collab={collab}
-                        assignment={assignment}
-                        supervisorName={assignment.supervisor_nombre}
+                        key={m.collab.id}
+                        collab={m.collab}
+                        brands={m.brands}
+                        puestos={m.puestos}
+                        supervisorName={m.supervisorName}
                       />
                     ))}
                   </div>
@@ -346,12 +493,13 @@ export default function ContOrganigrama() {
                 padding: "14px 16px",
               }}>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
-                  {chartData.unassigned.map(({ collab, assignment }) => (
+                  {chartData.unassigned.map(m => (
                     <PersonCard
-                      key={collab.id}
-                      collab={collab}
-                      assignment={assignment}
-                      supervisorName={assignment.supervisor_nombre}
+                      key={m.collab.id}
+                      collab={m.collab}
+                      brands={m.brands}
+                      puestos={m.puestos}
+                      supervisorName={m.supervisorName}
                     />
                   ))}
                 </div>
@@ -380,12 +528,6 @@ export default function ContOrganigrama() {
               <span style={{ fontSize: 11, color: COLORS.grayLight, fontFamily: B }}>{label}</span>
             </div>
           ))}
-          <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-            <svg width="20" height="10">
-              <line x1="0" y1="5" x2="20" y2="5" stroke={`${COLORS.red}35`} strokeWidth={2} strokeDasharray="4 2" />
-            </svg>
-            <span style={{ fontSize: 11, color: COLORS.grayLight, fontFamily: B }}>Supervisor → Subordinado</span>
-          </div>
         </div>
       )}
     </div>
