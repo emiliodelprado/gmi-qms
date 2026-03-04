@@ -50,7 +50,7 @@ export const NAV_MODULES = [
   {
     id: "tal", code: "TAL", label: "Talento", icon: "talent",
     fns: [
-      { id: "emp", code: "EMP", label: "Empleados", screens: [
+      { id: "emp", code: "EMP", label: "Personas", screens: [
         { id: "v-perf", label: "Ficha Colaborador",   path: "/tal/emp/v-perf" },
       ]},
       { id: "for", code: "FOR", label: "Formación", screens: [
@@ -96,7 +96,9 @@ export const NAV_MODULES = [
     id: "adm", code: "ADM", label: "Administración", icon: "lock",
     fns: [
       { id: "org-adm",  code: "ORG",  label: "Organización", screens: [
-        { id: "v-estr",   label: "Estructura Corporativa", path: "/adm/org/v-estr"   },
+        { id: "v-estr",    label: "Estructura Corporativa", path: "/adm/org/v-estr"    },
+        { id: "v-depart",  label: "Departamentos",          path: "/adm/org/v-depart"  },
+        { id: "v-puestos", label: "Puestos",                path: "/adm/org/v-puestos" },
       ]},
       { id: "proc-adm", code: "PROC", label: "Procesos", screens: [
         { id: "v-edproc", label: "Editor de Procesos",     path: "/adm/proc/v-edproc" },
@@ -111,6 +113,9 @@ export const NAV_MODULES = [
       ]},
       { id: "ui",       code: "UI",   label: "Apariencia", screens: [
         { id: "v-ui",     label: "Personalización UI",     path: "/adm/ui/v-ui"      },
+      ]},
+      { id: "cfg",      code: "CFG",  label: "Configuración", screens: [
+        { id: "v-regional", label: "Configuración Regional", path: "/adm/cfg/v-regional" },
       ]},
     ],
   },

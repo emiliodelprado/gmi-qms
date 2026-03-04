@@ -155,6 +155,100 @@ class QualityPolicyRead(BaseModel):
     brand_logo:  Optional[str] = None
 
 
+# ── Departments ────────────────────────────────────────────────────────────────
+class DepartmentCreate(BaseModel):
+    nombre:      str
+    descripcion: Optional[str] = None
+    nivel:       int = 0   # 0=más alto (Corporativo) … 4=más bajo (Operacional)
+    activo:      int = 1
+
+
+class DepartmentRead(DepartmentCreate):
+    id:         int
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Positions ──────────────────────────────────────────────────────────────────
+class PositionCreate(BaseModel):
+    nombre:           str
+    departamento_ids: List[int] = []
+    descripcion:      Optional[str] = None
+    requisitos:       Optional[str] = None
+    activo:           int = 1
+
+
+class PositionRead(BaseModel):
+    id:               int
+    nombre:           str
+    departamento_ids: List[int] = []
+    departamentos:    List[dict] = []   # [{"id": int, "nombre": str}]
+    descripcion:      Optional[str] = None
+    requisitos:       Optional[str] = None
+    activo:           int
+    created_at:       Optional[datetime] = None
+    updated_at:       Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Collaborators ──────────────────────────────────────────────────────────────
+class EntityAssignment(BaseModel):
+    """Per-entity assignment: entity + optional supervisor + positions."""
+    entity_id:     int
+    supervisor_id: Optional[int] = None
+    position_ids:  List[int] = []
+
+
+class EntityAssignmentRead(BaseModel):
+    entity_id:        int
+    entity_tipo:      str
+    entity_label:     str
+    entity_code:      str
+    entity_parent_id: Optional[int] = None
+    supervisor_id:    Optional[int] = None
+    supervisor_nombre: Optional[str] = None
+    position_ids:     List[int] = []
+    puestos:          List[dict] = []   # [{"id": int, "nombre": str}]
+
+    class Config:
+        from_attributes = True
+
+
+class CollaboratorCreate(BaseModel):
+    nombre:             str
+    apellidos:          str
+    identificador_hrms: Optional[str] = None
+    enlace_hrms:        Optional[str] = None
+    user_id:            Optional[int] = None
+    activo:             int = 1
+    entity_assignments: List[EntityAssignment] = []
+
+
+class CollaboratorRead(BaseModel):
+    id:                 int
+    nombre:             str
+    apellidos:          str
+    identificador_hrms: Optional[str] = None
+    enlace_hrms:        Optional[str] = None
+    user_id:            Optional[int] = None
+    user_email:         Optional[str] = None
+    user_name:          Optional[str] = None
+    user_tenants:       List[dict] = []
+    activo:             int
+    entity_ids:         List[int] = []    # convenience: flat list of assigned entity IDs
+    entity_assignments: List[EntityAssignmentRead] = []
+    created_at:         Optional[datetime] = None
+    updated_at:         Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ── Audit log ─────────────────────────────────────────────────────────────────
 class AuditLogEntry(BaseModel):
     id:         int
@@ -216,6 +310,19 @@ class UIBrandSettingsRead(BaseModel):
     logo_data:     Optional[str] = None
     primary_color: Optional[str] = None
     updated_at:    Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Regional Settings ─────────────────────────────────────────────────────────
+class RegionalSettingsUpdate(BaseModel):
+    timezone: str   # IANA timezone, e.g. "Europe/Madrid"
+
+
+class RegionalSettingsRead(BaseModel):
+    timezone:   str
+    updated_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

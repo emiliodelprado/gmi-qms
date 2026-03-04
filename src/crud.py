@@ -718,6 +718,287 @@ def get_quality_policy(
     )
 
 
+# ── Departments ────────────────────────────────────────────────────────────────
+def get_departments(db: Session) -> List[models.Department]:
+    return db.query(models.Department).order_by(models.Department.nivel, models.Department.nombre).all()
+
+
+def get_department(db: Session, did: int) -> Optional[models.Department]:
+    return db.query(models.Department).filter(models.Department.id == did).first()
+
+
+def create_department(db: Session, payload: schemas.DepartmentCreate) -> models.Department:
+    obj = models.Department(
+        nombre      = payload.nombre,
+        descripcion = payload.descripcion,
+        nivel       = payload.nivel,
+        activo      = payload.activo,
+        created_at  = datetime.utcnow(),
+        updated_at  = datetime.utcnow(),
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def update_department(
+    db: Session, did: int, payload: schemas.DepartmentCreate
+) -> Optional[models.Department]:
+    obj = get_department(db, did)
+    if not obj:
+        return None
+    obj.nombre      = payload.nombre
+    obj.descripcion = payload.descripcion
+    obj.nivel       = payload.nivel
+    obj.activo      = payload.activo
+    obj.updated_at  = datetime.utcnow()
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def delete_department(db: Session, did: int) -> bool:
+    obj = get_department(db, did)
+    if not obj:
+        return False
+    db.delete(obj)
+    db.commit()
+    return True
+
+
+# ── Positions ──────────────────────────────────────────────────────────────────
+def _position_to_read(pos: models.Position) -> schemas.PositionRead:
+    dept_ids     = []
+    departamentos = []
+    for pd in pos.departments:
+        if pd.department:
+            dept_ids.append(pd.department_id)
+            departamentos.append({"id": pd.department.id, "nombre": pd.department.nombre})
+    return schemas.PositionRead(
+        id               = pos.id,
+        nombre           = pos.nombre,
+        departamento_ids = dept_ids,
+        departamentos    = departamentos,
+        descripcion      = pos.descripcion,
+        requisitos       = pos.requisitos,
+        activo           = pos.activo,
+        created_at       = pos.created_at,
+        updated_at       = pos.updated_at,
+    )
+
+
+def get_positions(db: Session) -> List[schemas.PositionRead]:
+    items = db.query(models.Position).order_by(models.Position.nombre).all()
+    return [_position_to_read(p) for p in items]
+
+
+def get_position(db: Session, pid: int) -> Optional[models.Position]:
+    return db.query(models.Position).filter(models.Position.id == pid).first()
+
+
+def create_position(db: Session, payload: schemas.PositionCreate) -> schemas.PositionRead:
+    obj = models.Position(
+        nombre      = payload.nombre,
+        descripcion = payload.descripcion,
+        requisitos  = payload.requisitos,
+        activo      = payload.activo,
+        created_at  = datetime.utcnow(),
+        updated_at  = datetime.utcnow(),
+    )
+    db.add(obj)
+    db.flush()
+    for dept_id in payload.departamento_ids:
+        db.add(models.PositionDepartment(position_id=obj.id, department_id=dept_id))
+    db.commit()
+    db.refresh(obj)
+    return _position_to_read(obj)
+
+
+def update_position(
+    db: Session, pid: int, payload: schemas.PositionCreate
+) -> Optional[schemas.PositionRead]:
+    obj = get_position(db, pid)
+    if not obj:
+        return None
+    obj.nombre      = payload.nombre
+    obj.descripcion = payload.descripcion
+    obj.requisitos  = payload.requisitos
+    obj.activo      = payload.activo
+    obj.updated_at  = datetime.utcnow()
+    db.query(models.PositionDepartment).filter(
+        models.PositionDepartment.position_id == pid
+    ).delete()
+    for dept_id in payload.departamento_ids:
+        db.add(models.PositionDepartment(position_id=pid, department_id=dept_id))
+    db.commit()
+    db.refresh(obj)
+    return _position_to_read(obj)
+
+
+def delete_position(db: Session, pid: int) -> bool:
+    obj = get_position(db, pid)
+    if not obj:
+        return False
+    db.delete(obj)
+    db.commit()
+    return True
+
+
+# ── Collaborators ──────────────────────────────────────────────────────────────
+def _collab_to_read(c: models.Collaborator) -> schemas.CollaboratorRead:
+    entity_ids: List[int] = []
+    entity_assignments: List[schemas.EntityAssignmentRead] = []
+
+    for ce in c.entities:
+        if not ce.entity:
+            continue
+        entity_ids.append(ce.entity_id)
+
+        # Per-entity positions
+        pos_ids = []
+        puestos = []
+        for cep in ce.entity_positions:
+            if cep.position:
+                pos_ids.append(cep.position_id)
+                puestos.append({"id": cep.position.id, "nombre": cep.position.nombre})
+
+        sup_nombre = None
+        if ce.supervisor:
+            sup_nombre = f"{ce.supervisor.nombre} {ce.supervisor.apellidos}"
+
+        entity_assignments.append(schemas.EntityAssignmentRead(
+            entity_id         = ce.entity_id,
+            entity_tipo       = ce.entity.tipo,
+            entity_label      = ce.entity.label,
+            entity_code       = ce.entity.code,
+            entity_parent_id  = ce.entity.parent_id,
+            supervisor_id     = ce.supervisor_id,
+            supervisor_nombre = sup_nombre,
+            position_ids      = pos_ids,
+            puestos           = puestos,
+        ))
+
+    user_tenants = []
+    user_email   = None
+    user_name    = None
+    if c.user:
+        user_email = c.user.email
+        user_name  = c.user.name
+        for t in c.user.tenants:
+            if t.activo == 1:
+                user_tenants.append({
+                    "id":         t.id,
+                    "scope":      t.scope,
+                    "company_id": t.company_id,
+                    "brand_id":   t.brand_id,
+                    "role":       t.role,
+                })
+
+    return schemas.CollaboratorRead(
+        id                 = c.id,
+        nombre             = c.nombre,
+        apellidos          = c.apellidos,
+        identificador_hrms = c.identificador_hrms,
+        enlace_hrms        = c.enlace_hrms,
+        user_id            = c.user_id,
+        user_email         = user_email,
+        user_name          = user_name,
+        user_tenants       = user_tenants,
+        activo             = c.activo,
+        entity_ids         = entity_ids,
+        entity_assignments = entity_assignments,
+        created_at         = c.created_at,
+        updated_at         = c.updated_at,
+    )
+
+
+def _save_entity_assignments(db: Session, collaborator_id: int,
+                              assignments: List[schemas.EntityAssignment]):
+    """Create CollaboratorEntity + CollaboratorEntityPosition rows."""
+    for ea in assignments:
+        ce = models.CollaboratorEntity(
+            collaborator_id = collaborator_id,
+            entity_id       = ea.entity_id,
+            supervisor_id   = ea.supervisor_id,
+        )
+        db.add(ce)
+        db.flush()
+        for pid in ea.position_ids:
+            db.add(models.CollaboratorEntityPosition(
+                collaborator_entity_id=ce.id, position_id=pid,
+            ))
+
+
+def get_collaborators(
+    db: Session, activo: Optional[int] = None
+) -> List[schemas.CollaboratorRead]:
+    q = db.query(models.Collaborator)
+    if activo is not None:
+        q = q.filter(models.Collaborator.activo == activo)
+    items = q.order_by(models.Collaborator.apellidos, models.Collaborator.nombre).all()
+    return [_collab_to_read(c) for c in items]
+
+
+def get_collaborator(db: Session, cid: int) -> Optional[schemas.CollaboratorRead]:
+    c = db.query(models.Collaborator).filter(models.Collaborator.id == cid).first()
+    return _collab_to_read(c) if c else None
+
+
+def create_collaborator(
+    db: Session, payload: schemas.CollaboratorCreate
+) -> schemas.CollaboratorRead:
+    obj = models.Collaborator(
+        nombre             = payload.nombre,
+        apellidos          = payload.apellidos,
+        identificador_hrms = payload.identificador_hrms,
+        enlace_hrms        = payload.enlace_hrms,
+        user_id            = payload.user_id,
+        activo             = payload.activo,
+        created_at         = datetime.utcnow(),
+        updated_at         = datetime.utcnow(),
+    )
+    db.add(obj)
+    db.flush()
+    _save_entity_assignments(db, obj.id, payload.entity_assignments)
+    db.commit()
+    db.refresh(obj)
+    return _collab_to_read(obj)
+
+
+def update_collaborator(
+    db: Session, cid: int, payload: schemas.CollaboratorCreate
+) -> Optional[schemas.CollaboratorRead]:
+    obj = db.query(models.Collaborator).filter(models.Collaborator.id == cid).first()
+    if not obj:
+        return None
+    obj.nombre             = payload.nombre
+    obj.apellidos          = payload.apellidos
+    obj.identificador_hrms = payload.identificador_hrms
+    obj.enlace_hrms        = payload.enlace_hrms
+    obj.user_id            = payload.user_id
+    obj.activo             = payload.activo
+    obj.updated_at         = datetime.utcnow()
+    # Replace entity assignments (cascade deletes entity_positions)
+    db.query(models.CollaboratorEntity).filter(
+        models.CollaboratorEntity.collaborator_id == cid
+    ).delete()
+    db.flush()
+    _save_entity_assignments(db, cid, payload.entity_assignments)
+    db.commit()
+    db.refresh(obj)
+    return _collab_to_read(obj)
+
+
+def delete_collaborator(db: Session, cid: int) -> bool:
+    obj = db.query(models.Collaborator).filter(models.Collaborator.id == cid).first()
+    if not obj:
+        return False
+    obj.activo = 0
+    db.commit()
+    return True
+
+
 def upsert_quality_policy(
     db: Session, payload: schemas.QualityPolicyUpsert, user_email: str
 ) -> models.QualityPolicy:
@@ -753,3 +1034,27 @@ def upsert_quality_policy(
     db.commit()
     db.refresh(pol)
     return pol
+
+
+# ── Regional Settings ─────────────────────────────────────────────────────────
+def get_regional_settings(db: Session) -> models.RegionalSettings:
+    """Return the single regional_settings row (always id=1)."""
+    row = db.query(models.RegionalSettings).filter(models.RegionalSettings.id == 1).first()
+    if not row:
+        row = models.RegionalSettings(id=1, timezone="Europe/Madrid")
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def update_regional_settings(
+    db: Session, payload: schemas.RegionalSettingsUpdate
+) -> models.RegionalSettings:
+    """Update regional settings (single-row)."""
+    row = get_regional_settings(db)
+    row.timezone   = payload.timezone
+    row.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(row)
+    return row

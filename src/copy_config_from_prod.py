@@ -1,11 +1,18 @@
 """
-copy_config_from_prod.py — Copia tablas de configuración de producción a la BD local.
+copy_config_from_prod.py — Copia tablas de configuración y datos de producción a la BD local.
 
-Tablas copiadas (configuración visual/estructural):
-  - corporate_entities   → estructura corporativa
-  - ui_brand_settings    → logos y colores de marca
-  - quality_policies     → políticas de calidad
-  - role_permissions     → matriz de permisos por rol
+Tablas copiadas (en orden de inserción por FK):
+  - corporate_entities            → estructura corporativa
+  - ui_brand_settings             → logos y colores de marca
+  - quality_policies              → políticas de calidad
+  - role_permissions              → matriz de permisos por rol
+  - regional_settings             → configuración regional (zona horaria)
+  - departments                   → catálogo de departamentos
+  - positions                     → catálogo de puestos
+  - position_departments          → relación puestos ↔ departamentos
+  - collaborators                 → ficha de colaboradores
+  - collaborator_entities         → asignación colaborador ↔ entidad (con supervisor)
+  - collaborator_entity_positions → puestos por asignación de entidad
 
 Tablas NO copiadas (datos locales propios):
   - user_access          → usuarios y contraseñas (se gestionan con seed_dev.py)
@@ -88,12 +95,22 @@ def _build_target_url() -> str:
     return f"postgresql+psycopg2://{user}:{pwd}@{host}:{port}/{name}"
 
 
-# ── Tables to copy, in insertion order ─────────────────────────────────────
+# ── Tables to copy, in insertion order (FK-safe) ─────────────────────────
 COPY_PLAN = [
+    # Config base
     models.CorporateEntity,
     models.UIBrandSettings,
     models.QualityPolicy,
     models.RolePermission,
+    models.RegionalSettings,
+    # Departamentos y puestos
+    models.Department,
+    models.Position,
+    models.PositionDepartment,
+    # Colaboradores (depende de corporate_entities + positions)
+    models.Collaborator,
+    models.CollaboratorEntity,
+    models.CollaboratorEntityPosition,
 ]
 
 

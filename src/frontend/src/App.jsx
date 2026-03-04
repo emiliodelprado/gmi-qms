@@ -39,16 +39,19 @@ import NcGestion          from "./pages/mej/NcGestion.jsx";
 import EtiCanal           from "./pages/mej/EtiCanal.jsx";
 // ADM
 import AdmEstructura      from "./pages/adm/AdmEstructura.jsx";
+import AdmPuestos         from "./pages/adm/AdmPuestos.jsx";
+import AdmDepartamentos   from "./pages/adm/AdmDepartamentos.jsx";
 import AdmEditorProcesos  from "./pages/adm/AdmEditorProcesos.jsx";
 import AdmUsers           from "./pages/adm/AdmUsers.jsx";
 import AdmRoles           from "./pages/adm/AdmRoles.jsx";
 import AdmLog             from "./pages/adm/AdmLog.jsx";
 import AdmAuth            from "./pages/adm/AdmAuth.jsx";
 import AdmUI              from "./pages/adm/AdmUI.jsx";
+import AdmRegionalSettings from "./pages/adm/AdmRegionalSettings.jsx";
 import Novedades          from "./pages/Novedades.jsx";
 import Solicitudes        from "./pages/Solicitudes.jsx";
 import Login              from "./pages/Login.jsx";
-import { PermissionsContext, SolicitudContext } from "./contexts.jsx";
+import { PermissionsContext, SolicitudContext, TimezoneContext } from "./contexts.jsx";
 
 // ─── Screen catalogue (for solicitud form) ──────────────────────────────────
 const SCREEN_GROUPS = NAV_MODULES.map(mod => ({
@@ -347,6 +350,20 @@ const Layout = ({ user }) => {
     return () => window.removeEventListener("brand-settings-saved", handler);
   }, [company, brand]);
 
+  // ── App-wide timezone ───────────────────────────────────────────────────────
+  const [appTimezone, setAppTimezone] = useState("Europe/Madrid");
+  useEffect(() => {
+    apiFetch("/api/adm/regional-settings")
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data?.timezone) setAppTimezone(data.timezone); })
+      .catch(() => {});
+  }, []);
+  useEffect(() => {
+    const handler = (e) => setAppTimezone(e.detail.timezone);
+    window.addEventListener("regional-settings-saved", handler);
+    return () => window.removeEventListener("regional-settings-saved", handler);
+  }, []);
+
   // ── Previous-path tracking (for solicitud defaults) ─────────────────────────
   const location = useLocation();
   const [prevPath, setPrevPath] = useState("/home");
@@ -389,6 +406,7 @@ const Layout = ({ user }) => {
   const solCtx = { open: openSolicitud, prevScreenLabel, user };
 
   return (
+    <TimezoneContext.Provider value={appTimezone}>
     <CompanyContext.Provider value={{ company, brand, setCompany, setBrand }}>
       <PermissionsContext.Provider value={perms}>
         <SolicitudContext.Provider value={solCtx}>
@@ -425,12 +443,15 @@ const Layout = ({ user }) => {
                 <Route path="/mej/nc/v-nc"       element={<GuardedRoute screenId="v-nc"     element={<NcGestion />} />} />
                 <Route path="/mej/eti/v-canal"   element={<GuardedRoute screenId="v-canal"  element={<EtiCanal />} />} />
                 <Route path="/adm/org/v-estr"    element={<GuardedRoute screenId="v-estr"   element={<AdmEstructura />} />} />
+                <Route path="/adm/org/v-depart"  element={<GuardedRoute screenId="v-depart"  element={<AdmDepartamentos />} />} />
+                <Route path="/adm/org/v-puestos" element={<GuardedRoute screenId="v-puestos" element={<AdmPuestos />} />} />
                 <Route path="/adm/proc/v-edproc" element={<GuardedRoute screenId="v-edproc" element={<AdmEditorProcesos />} />} />
                 <Route path="/adm/acc/v-user"    element={<GuardedRoute screenId="v-user"   element={<AdmUsers />} />} />
                 <Route path="/adm/acc/v-roles"   element={<GuardedRoute screenId="v-roles"  element={<AdmRoles />} />} />
                 <Route path="/adm/acc/v-log"     element={<GuardedRoute screenId="v-log"    element={<AdmLog />} />} />
                 <Route path="/adm/sec/v-auth"    element={<GuardedRoute screenId="v-auth"   element={<AdmAuth />} />} />
                 <Route path="/adm/ui/v-ui"       element={<GuardedRoute screenId="v-ui"     element={<AdmUI />} />} />
+                <Route path="/adm/cfg/v-regional" element={<GuardedRoute screenId="v-regional" element={<AdmRegionalSettings />} />} />
                 <Route path="/admin/usuarios"    element={<AdminUsers />} />
                 <Route path="/perfil"            element={<Profile user={user} />} />
                 <Route path="/novedades"         element={<Novedades />} />
@@ -538,6 +559,7 @@ const Layout = ({ user }) => {
         </SolicitudContext.Provider>
       </PermissionsContext.Provider>
     </CompanyContext.Provider>
+    </TimezoneContext.Provider>
   );
 };
 

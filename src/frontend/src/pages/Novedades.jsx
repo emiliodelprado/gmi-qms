@@ -2,53 +2,63 @@ import { COLORS, H, B } from "../constants.jsx";
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 const RELEASE = {
-  version: "0.4.0",
-  date:    "3 marzo 2026",
-  title:   "Solicitudes, guía interactiva y herramientas de desarrollo",
-  summary: "Cuarta versión del GMI Quality Management System. Incorpora la página de Solicitudes para que cualquier usuario pueda reportar peticiones, errores y sugerencias, con gestión avanzada para el rol IT/admin. Añade una guía interactiva contextual de 10 pasos que recorre la cabecera y los 7 módulos agrupados por fases PDCA, con tarjetas draggable y persistencia en localStorage. Incluye nuevas herramientas de desarrollo: stop-dev.sh, copia de configuración desde producción y modo backend-only en start-dev.sh.",
+  version: "0.4.1",
+  date:    "4 marzo 2026",
+  title:   "Talento, estructura organizacional y configuración regional",
+  summary: "Versión centrada en el módulo de Talento y Estructura. Implementa puestos y supervisores por entidad/marca (un colaborador puede tener distintos puestos y supervisores en cada empresa o marca). Añade la página de Organigrama con datos reales, agrupación por departamentos según nivel jerárquico y líneas SVG de supervisor. Incorpora configuración regional (zona horaria) y nuevas páginas de administración para departamentos y puestos. Actualiza el script de copia de producción para incluir departamentos, puestos y colaboradores.",
 };
 
 const SECTIONS = [
   {
-    icon: "📋",
+    icon: "👥",
     color: COLORS.red,
     bg:    "#FFEBEE",
-    title: "Solicitudes",
-    subtitle: "Peticiones, errores y sugerencias",
+    title: "Puestos y supervisores por entidad/marca",
+    subtitle: "Migración 016 · Modelo relacional per-entity",
     items: [
-      { label: "Página de Solicitudes",              detail: "Listado completo con filtros por estado (enviada, leída, en proceso, resuelta, descartada). Accesible para todos los usuarios desde el menú lateral" },
-      { label: "Gestión IT/admin",                    detail: "El rol IT puede cambiar el estado de cada solicitud, añadir comentarios de administrador y eliminar solicitudes" },
-      { label: "Botón lateral flotante",              detail: "Botón vertical 'Nueva solicitud' siempre visible en el lateral derecho de la pantalla. Abre un drawer global con el campo Pantalla auto-poblado según la pantalla actual" },
-      { label: "Drawer global de nueva solicitud",    detail: "Panel deslizante desde la derecha (520 px) con selector de pantalla agrupado por módulos y campo de detalle. Disponible desde cualquier parte de la aplicación" },
-      { label: "Smart defaults en Pantalla",          detail: "Desde el botón lateral: pantalla actual. Desde la página de Solicitudes: pantalla anterior. Catálogo completo de 30 pantallas organizado por módulo" },
+      { label: "Puestos por entidad",                  detail: "Un colaborador puede tener distintos puestos en cada empresa o marca activada. La asignación se gestiona inline al activar cada entidad en la Ficha Colaborador" },
+      { label: "Supervisor por entidad",                detail: "Cada asignación de entidad tiene su propio supervisor. Permite jerarquías distintas en cada empresa o marca (ej. supervisor A en GMS, supervisor B en EPUNTO)" },
+      { label: "Migración automática de datos",         detail: "La migración 016 copia los puestos y supervisores globales existentes a todas las entidades del colaborador. No se pierde información" },
+      { label: "Eliminación de tablas globales",         detail: "Se elimina collaborator_positions y collaborators.supervisor_id. Los puestos y supervisores ahora viven en collaborator_entity_positions y collaborator_entities.supervisor_id" },
+      { label: "UI inline en Ficha Colaborador",        detail: "Al activar una entidad se despliegan dropdown de supervisor y pills de puestos. Reemplaza las secciones globales anteriores" },
     ],
   },
   {
-    icon: "🧭",
-    color: "#E65100",
-    bg:    "#FFF3E0",
-    title: "Guía interactiva contextual",
-    subtitle: "10 pasos · 5 secciones PDCA",
+    icon: "🏢",
+    color: "#1565C0",
+    bg:    "#E3F2FD",
+    title: "Organigrama con datos reales",
+    subtitle: "Departamentos · Niveles · Líneas SVG",
     items: [
-      { label: "Tour de 10 pasos",                   detail: "Recorre la cabecera (logo, selector de empresa, filtro de marca) y los 7 módulos agrupados por fases PDCA: Plan, Do, Check, Act" },
-      { label: "Tarjeta flotante draggable",          detail: "La tarjeta del paso actual aparece en la zona superior sin overlay oscuro. Se puede arrastrar a cualquier posición si obstaculiza la vista" },
-      { label: "Highlight del elemento objetivo",     detail: "Cada paso resalta el elemento correspondiente con un borde rojo. El elemento se hace scroll-into-view automáticamente" },
-      { label: "Badges de fase con intro",            detail: "Cada fase PDCA tiene un color distintivo y un banner introductorio que explica su propósito en el primer paso de la fase" },
-      { label: "Persistencia y activación",           detail: "El estado de completado se guarda en localStorage. Card de invitación para nuevos usuarios y botón 'Repetir guía' para usuarios que ya la completaron" },
-      { label: "Navegación por teclado",              detail: "Flechas izquierda/derecha para avanzar/retroceder, Escape para cerrar. Indicador visual con dots de progreso por fase" },
+      { label: "Selector de entidad en la página",     detail: "Dropdown propio para elegir la entidad o marca a visualizar, independiente del selector global del TopBar" },
+      { label: "Agrupación por departamentos",          detail: "Los colaboradores se agrupan en su departamento principal (determinado por sus puestos). Departamentos ordenados de arriba a abajo según nivel jerárquico (0=Corporativo → 4=Operacional)" },
+      { label: "Líneas de supervisor SVG",              detail: "Overlay SVG con curvas bezier que conectan supervisor y subordinado. Se recalculan automáticamente al redimensionar la ventana" },
+      { label: "Tarjetas de colaborador",               detail: "Avatar con iniciales, nombre completo, pills de puestos e indicador de supervisor. Sección 'Sin departamento' para colaboradores sin mapping posición→departamento" },
+      { label: "Leyenda visual",                        detail: "Colores por nivel de departamento (rojo=Corporativo, naranja=Dirección, azul=Área, verde=Sección, gris=Operacional) y ejemplo de línea supervisor" },
     ],
   },
   {
-    icon: "🛠️",
+    icon: "🌐",
     color: "#00695C",
     bg:    "#E0F2F1",
-    title: "Herramientas de desarrollo v0.4.0",
-    subtitle: "Scripts · Base de datos · Configuración",
+    title: "Configuración Regional",
+    subtitle: "Zona horaria · Migraciones 015-016",
     items: [
-      { label: "stop-dev.sh",                        detail: "Script complementario a start-dev.sh. Detiene backend (puerto 8000), frontend (puerto 3001) y PostgreSQL (docker compose)" },
-      { label: "start-dev.sh backend",                detail: "Nuevo modo backend-only: reinicia solo el servidor FastAPI sin tocar la base de datos ni el frontend" },
-      { label: "copy_config_from_prod",               detail: "Scripts Python y Bash para copiar tablas de configuración (corporate_entities, ui_brand_settings, quality_policies, role_permissions) desde producción a local via Cloud SQL Proxy" },
-      { label: "Auto-carga .env.local en database.py", detail: "Si las variables de entorno DB_USER/DB_PASSWORD no están definidas, database.py carga automáticamente src/.env.local al iniciar" },
+      { label: "Página de Configuración Regional",     detail: "Nueva página en Administración → Configuración para establecer la zona horaria de la aplicación. Dropdown con zonas IANA (Europa, América, UTC)" },
+      { label: "Timestamps corregidos",                 detail: "Registro de Actividad y Gestión de Usuarios ahora muestran las horas en la zona horaria configurada en vez de la del navegador" },
+      { label: "TimezoneContext global",                detail: "React Context que propaga la zona horaria configurada a todos los componentes. Se actualiza en tiempo real al guardar sin recargar la página" },
+      { label: "Departamentos y Puestos",               detail: "Nuevas páginas de administración para gestionar el catálogo de departamentos (con niveles jerárquicos 0-4) y puestos (con asignación a departamentos)" },
+    ],
+  },
+  {
+    icon: "🔄",
+    color: "#6A1B9A",
+    bg:    "#F3E5F5",
+    title: "Copia de datos de producción",
+    subtitle: "copy_config_from_prod actualizado",
+    items: [
+      { label: "Nuevas tablas en el script de copia",   detail: "Además de corporate_entities, ui_brand_settings, quality_policies y role_permissions, ahora copia departments, positions, position_departments, collaborators, collaborator_entities, collaborator_entity_positions y regional_settings" },
+      { label: "Orden de inserción por dependencias",   detail: "Las tablas se copian en orden que respeta las foreign keys: primero las tablas base, luego las join tables y relaciones dependientes" },
     ],
   },
   {
@@ -139,6 +149,18 @@ const SECTIONS = [
     ],
   },
   {
+    icon: "📋",
+    color: "#E65100",
+    bg:    "#FFF3E0",
+    title: "Novedades v0.4.0",
+    subtitle: "Solicitudes · Guía interactiva · Herramientas dev",
+    items: [
+      { label: "Solicitudes",                          detail: "Página completa con filtros por estado, gestión IT/admin, botón lateral flotante y drawer global con selector de pantalla agrupado por módulos" },
+      { label: "Guía interactiva contextual",           detail: "Tour de 10 pasos por los módulos PDCA con tarjeta draggable, highlight del elemento objetivo, navegación por teclado y persistencia en localStorage" },
+      { label: "Herramientas de desarrollo",             detail: "stop-dev.sh, modo backend-only en start-dev.sh, copy_config_from_prod y auto-carga de .env.local en database.py" },
+    ],
+  },
+  {
     icon: "🏗️",
     color: "#00695C",
     bg:    "#E0F2F1",
@@ -216,7 +238,7 @@ export default function Novedades() {
           <div style={{ textAlign: "right", flexShrink: 0 }}>
             <div style={{ fontSize: 11, color: COLORS.grayLight, fontFamily: B }}>{RELEASE.date}</div>
             <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap", justifyContent: "flex-end" }}>
-              {["Solicitudes", "Guía PDCA", "Draggable", "stop-dev.sh", "7 módulos", "30 pantallas"].map(t => (
+              {["Puestos por entidad", "Organigrama", "Zona horaria", "Departamentos", "SVG lines", "Migraciones 015-016"].map(t => (
                 <Tag key={t} label={t} bg="#F5F5F5" color={COLORS.grayLight} />
               ))}
             </div>

@@ -11,7 +11,7 @@ import os, time
 
 from database import get_db, engine
 import models, schemas, crud
-from auth import get_current_user, require_admin, require_it, DEV_MODE
+from auth import get_current_user, require_admin, require_it, require_manager, DEV_MODE
 
 app = FastAPI(
     title="GMI Quality Management System API",
@@ -580,7 +580,7 @@ def delete_ui_brand_settings(
 @app.get("/api/adm/structure", response_model=List[schemas.CorporateEntityRead])
 def list_structure(
     db:   Session = Depends(get_db),
-    user=Depends(require_admin),
+    user=Depends(get_current_user),
 ):
     ensure_tables()
     return crud.get_corporate_entities(db)
@@ -630,6 +630,221 @@ def delete_entity(
         raise HTTPException(status_code=404, detail="Entidad no encontrada")
     crud.write_audit(db, user.email, "STRUCTURE_DELETE", f"entity:{eid}",
                      ip_address=_client_ip(request))
+
+
+# ── DEPARTMENTS (Departamentos – global catalog) ──────────────────────────────
+@app.get("/api/adm/departments", response_model=List[schemas.DepartmentRead])
+def list_departments(
+    db:   Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    ensure_tables()
+    return crud.get_departments(db)
+
+
+@app.post("/api/adm/departments", response_model=schemas.DepartmentRead, status_code=201)
+def create_department(
+    payload: schemas.DepartmentCreate,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    ensure_tables()
+    obj = crud.create_department(db, payload)
+    crud.write_audit(db, user.email, "CREATE", f"department:{obj.nombre}",
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.put("/api/adm/departments/{did}", response_model=schemas.DepartmentRead)
+def update_department(
+    did:     int,
+    payload: schemas.DepartmentCreate,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    ensure_tables()
+    obj = crud.update_department(db, did, payload)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Departamento no encontrado")
+    crud.write_audit(db, user.email, "EDIT", f"department:{obj.nombre}",
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.delete("/api/adm/departments/{did}", status_code=204)
+def delete_department(
+    did:     int,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    ensure_tables()
+    obj = crud.get_department(db, did)
+    if not crud.delete_department(db, did):
+        raise HTTPException(status_code=404, detail="Departamento no encontrado")
+    crud.write_audit(db, user.email, "DELETE", f"department:{obj.nombre if obj else did}",
+                     ip_address=_client_ip(request))
+
+
+# ── POSITIONS (Puestos – global catalog) ─────────────────────────────────────
+@app.get("/api/adm/positions", response_model=List[schemas.PositionRead])
+def list_positions(
+    db:   Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    ensure_tables()
+    return crud.get_positions(db)
+
+
+@app.post("/api/adm/positions", response_model=schemas.PositionRead, status_code=201)
+def create_position(
+    payload: schemas.PositionCreate,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    ensure_tables()
+    obj = crud.create_position(db, payload)
+    crud.write_audit(db, user.email, "CREATE", f"position:{obj.nombre}",
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.put("/api/adm/positions/{pid}", response_model=schemas.PositionRead)
+def update_position(
+    pid:     int,
+    payload: schemas.PositionCreate,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    ensure_tables()
+    obj = crud.update_position(db, pid, payload)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Puesto no encontrado")
+    crud.write_audit(db, user.email, "EDIT", f"position:{obj.nombre}",
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.delete("/api/adm/positions/{pid}", status_code=204)
+def delete_position(
+    pid:     int,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    ensure_tables()
+    obj = crud.get_position(db, pid)
+    if not crud.delete_position(db, pid):
+        raise HTTPException(status_code=404, detail="Puesto no encontrado")
+    crud.write_audit(db, user.email, "DELETE", f"position:{obj.nombre if obj else pid}",
+                     ip_address=_client_ip(request))
+
+
+# ── COLLABORATORS (Ficha Colaborador) ─────────────────────────────────────────
+@app.get("/api/tal/collaborators", response_model=List[schemas.CollaboratorRead])
+def list_collaborators(
+    activo: Optional[int] = Query(None),
+    db:     Session        = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    ensure_tables()
+    return crud.get_collaborators(db, activo=activo)
+
+
+@app.get("/api/tal/collaborators/{cid}", response_model=schemas.CollaboratorRead)
+def get_collaborator(
+    cid: int,
+    db:  Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    ensure_tables()
+    obj = crud.get_collaborator(db, cid)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Colaborador no encontrado")
+    return obj
+
+
+@app.post("/api/tal/collaborators", response_model=schemas.CollaboratorRead, status_code=201)
+def create_collaborator(
+    payload: schemas.CollaboratorCreate,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_manager),
+):
+    ensure_tables()
+    obj = crud.create_collaborator(db, payload)
+    crud.write_audit(db, user.email, "CREATE",
+                     f"collaborator:{obj.nombre} {obj.apellidos}",
+                     company_id=user.company_id, brand_id=user.brand_id,
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.put("/api/tal/collaborators/{cid}", response_model=schemas.CollaboratorRead)
+def update_collaborator(
+    cid:     int,
+    payload: schemas.CollaboratorCreate,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_manager),
+):
+    ensure_tables()
+    obj = crud.update_collaborator(db, cid, payload)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Colaborador no encontrado")
+    crud.write_audit(db, user.email, "EDIT",
+                     f"collaborator:{obj.nombre} {obj.apellidos}",
+                     company_id=user.company_id, brand_id=user.brand_id,
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.delete("/api/tal/collaborators/{cid}", status_code=204)
+def delete_collaborator(
+    cid:     int,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_manager),
+):
+    ensure_tables()
+    obj = crud.get_collaborator(db, cid)
+    if not crud.delete_collaborator(db, cid):
+        raise HTTPException(status_code=404, detail="Colaborador no encontrado")
+    crud.write_audit(db, user.email, "DELETE",
+                     f"collaborator:{obj.nombre + ' ' + obj.apellidos if obj else cid}",
+                     company_id=user.company_id, brand_id=user.brand_id,
+                     ip_address=_client_ip(request))
+
+
+# ── REGIONAL SETTINGS ─────────────────────────────────────────────────────────
+@app.get("/api/adm/regional-settings", response_model=schemas.RegionalSettingsRead)
+def get_regional_settings(
+    db:   Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    ensure_tables()
+    return crud.get_regional_settings(db)
+
+
+@app.put("/api/adm/regional-settings", response_model=schemas.RegionalSettingsRead)
+def update_regional_settings(
+    payload: schemas.RegionalSettingsUpdate,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    obj = crud.update_regional_settings(db, payload)
+    crud.write_audit(
+        db, user.email, "EDIT", f"regional_settings:timezone={payload.timezone}",
+        company_id=user.company_id, brand_id=user.brand_id,
+        ip_address=_client_ip(request),
+    )
+    return obj
 
 
 # ── Serve frontend React (catch-all — siempre al final) ──────────────────────

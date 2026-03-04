@@ -1,6 +1,7 @@
 import { useState, useContext, useEffect } from "react";
 import { COLORS, H, B, Icon, Card, PageHeader, Badge, BtnPrimary } from "../../constants.jsx";
 import { CompanyContext } from "../../App.jsx";
+import { TimezoneContext } from "../../contexts.jsx";
 
 const ROLES    = ["IT", "Dirección", "Calidad", "Partners", "Managers", "Colaborador", "Auditor"];
 const EMPRESAS = ["GMS", "GMP"];
@@ -30,14 +31,15 @@ const ROL_CFG = {
 };
 
 // Backend UserAccessRead → frontend row
-function fromApi(u) {
+function fromApi(u, tz = "Europe/Madrid") {
   return {
     id:                 u.id,
     email:              u.email,
     nombre:             u.name ?? "—",
     estado:             u.activo === 1 ? "Activo" : "Inactivo",
     ultima:             u.last_login
-      ? new Date(u.last_login).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })
+      ? new Date(u.last_login.endsWith?.("Z") ? u.last_login : u.last_login + "Z")
+          .toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short", timeZone: tz })
       : "—",
     rol:                u.role       ?? "—",
     empresa:            u.company_id ?? "—",
@@ -100,6 +102,7 @@ const lbl = {
 
 export default function AdmUsers() {
   const { company, brand } = useContext(CompanyContext);
+  const tz = useContext(TimezoneContext);
 
   const [users,      setUsers]      = useState([]);
   const [loading,    setLoading]    = useState(true);
@@ -131,7 +134,7 @@ export default function AdmUsers() {
         { credentials: "include", headers: tenantHeaders },
       );
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      setUsers((await r.json()).map(fromApi));
+      setUsers((await r.json()).map(u => fromApi(u, tz)));
     } catch (e) {
       setApiError("No se pudo conectar con el servidor: " + e.message);
     } finally {

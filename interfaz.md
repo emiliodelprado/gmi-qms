@@ -76,6 +76,10 @@ Nivel 3: Pantalla | Partes Interesadas (V-PART)
 
 Contenido Visual: Tabla detallada de grupos de interés (Clientes, Empleados, Socios) con columnas para Requisitos clave, Nivel de Influencia (Bajo/Medio/Alto) y Prioridad de atención.
 
+Nivel 3: Pantalla | Política de Calidad (V-POL)
+
+Contenido Visual: Editor de texto enriquecido (WYSIWYG) o visualizador de documentos PDF que permite a la Dirección publicar la política vigente. Incluye un registro prominente de "Fecha de última revisión", "Versión" y firma digital del responsable.
+
 NIVEL 1: MÓDULO | RIESGOS (RSG)
 
 Nombre Largo: Gestión de Riesgos y Oportunidades

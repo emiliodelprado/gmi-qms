@@ -98,3 +98,17 @@ def require_it(user: schemas.UserInfo = Depends(get_current_user)) -> schemas.Us
     if user.role not in ADMIN_ROLES:
         raise HTTPException(status_code=403, detail="Acceso denegado: se requiere rol IT")
     return user
+
+
+# Roles allowed to manage collaborator/HR data
+MANAGER_ROLES = {"IT", "admin", "Dirección", "Calidad"}
+
+
+def require_manager(user: schemas.UserInfo = Depends(get_current_user)) -> schemas.UserInfo:
+    """Require IT, Dirección, or Calidad role (collaborator and HR management)."""
+    if user.role not in MANAGER_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail="Acceso denegado: se requiere rol IT, Dirección o Calidad",
+        )
+    return user

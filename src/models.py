@@ -146,3 +146,121 @@ class RolePermission(Base):
     screen_id  = Column(String(30),  nullable=False)
     permission = Column(String(5),   nullable=False, default="—")  # — | R | R/W
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Department(Base):
+    """Global catalog of departments (Departamentos).
+
+    nivel: 0=más alto (Corporativo), 1, 2, 3, 4=más bajo (Operacional).
+    """
+    __tablename__ = "departments"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    nombre      = Column(String(200), nullable=False)
+    descripcion = Column(Text, nullable=True)
+    nivel       = Column(Integer, default=0, nullable=False)
+    activo      = Column(Integer, default=1)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class Position(Base):
+    """Global catalog of job positions (Puestos)."""
+    __tablename__ = "positions"
+
+    id          = Column(Integer, primary_key=True, index=True)
+    nombre      = Column(String(200), nullable=False)
+    descripcion = Column(Text, nullable=True)   # Objetivos y funciones
+    requisitos  = Column(Text, nullable=True)
+    activo      = Column(Integer, default=1)
+    created_at  = Column(DateTime, default=datetime.utcnow)
+    updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    departments = relationship(
+        "PositionDepartment", back_populates="position",
+        cascade="all, delete-orphan", lazy="selectin",
+    )
+
+
+class PositionDepartment(Base):
+    """Many-to-many: position ↔ department."""
+    __tablename__ = "position_departments"
+    __table_args__ = (
+        UniqueConstraint("position_id", "department_id", name="uq_pos_dept"),
+    )
+
+    id            = Column(Integer, primary_key=True, index=True)
+    position_id   = Column(Integer, ForeignKey("positions.id",   ondelete="CASCADE"), nullable=False)
+    department_id = Column(Integer, ForeignKey("departments.id", ondelete="CASCADE"), nullable=False)
+
+    position   = relationship("Position", back_populates="departments")
+    department = relationship("Department", lazy="select")
+
+
+class Collaborator(Base):
+    """Employee/collaborator profile."""
+    __tablename__ = "collaborators"
+
+    id                 = Column(Integer, primary_key=True, index=True)
+    nombre             = Column(String(200), nullable=False)
+    apellidos          = Column(String(200), nullable=False)
+    identificador_hrms = Column(String(100), nullable=True)
+    enlace_hrms        = Column(String(500), nullable=True)
+    user_id            = Column(Integer, ForeignKey("user_access.id"), nullable=True)
+    activo             = Column(Integer, default=1)
+    created_at         = Column(DateTime, default=datetime.utcnow)
+    updated_at         = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user      = relationship("UserAccess", lazy="select")
+    entities  = relationship(
+        "CollaboratorEntity", back_populates="collaborator",
+        foreign_keys="[CollaboratorEntity.collaborator_id]",
+        cascade="all, delete-orphan", lazy="selectin",
+    )
+
+
+class CollaboratorEntity(Base):
+    """Collaborator ↔ entity assignment with per-entity supervisor."""
+    __tablename__ = "collaborator_entities"
+    __table_args__ = (
+        UniqueConstraint("collaborator_id", "entity_id", name="uq_collab_entity"),
+    )
+
+    id              = Column(Integer, primary_key=True, index=True)
+    collaborator_id = Column(Integer, ForeignKey("collaborators.id", ondelete="CASCADE"), nullable=False)
+    entity_id       = Column(Integer, ForeignKey("corporate_entities.id", ondelete="CASCADE"), nullable=False)
+    supervisor_id   = Column(Integer, ForeignKey("collaborators.id"), nullable=True)
+
+    collaborator     = relationship("Collaborator", back_populates="entities",
+                                    foreign_keys=[collaborator_id])
+    entity           = relationship("CorporateEntity", lazy="select")
+    supervisor       = relationship("Collaborator", foreign_keys=[supervisor_id],
+                                    lazy="select")
+    entity_positions = relationship(
+        "CollaboratorEntityPosition", back_populates="collaborator_entity",
+        cascade="all, delete-orphan", lazy="selectin",
+    )
+
+
+class CollaboratorEntityPosition(Base):
+    """Positions assigned per entity assignment."""
+    __tablename__ = "collaborator_entity_positions"
+    __table_args__ = (
+        UniqueConstraint("collaborator_entity_id", "position_id", name="uq_ce_pos"),
+    )
+
+    id                     = Column(Integer, primary_key=True, index=True)
+    collaborator_entity_id = Column(Integer, ForeignKey("collaborator_entities.id", ondelete="CASCADE"), nullable=False)
+    position_id            = Column(Integer, ForeignKey("positions.id", ondelete="CASCADE"), nullable=False)
+
+    collaborator_entity = relationship("CollaboratorEntity", back_populates="entity_positions")
+    position            = relationship("Position", lazy="select")
+
+
+class RegionalSettings(Base):
+    """App-wide regional settings (single-row table)."""
+    __tablename__ = "regional_settings"
+
+    id         = Column(Integer, primary_key=True)
+    timezone   = Column(String(100), nullable=False, default="Europe/Madrid")
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

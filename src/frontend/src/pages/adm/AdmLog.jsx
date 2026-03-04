@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useContext } from "react";
 import { COLORS, H, B, Card, PageHeader, Badge, apiFetch } from "../../constants.jsx";
+import { TimezoneContext } from "../../contexts.jsx";
 
 // ── Action colour config ───────────────────────────────────────────────────────
 const ACCION_CFG = {
@@ -22,10 +23,10 @@ const ACCION_CFG = {
 const ALL_ACTIONS = Object.entries(ACCION_CFG).map(([k, v]) => ({ value: k, label: v.label }));
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-function fmtTs(ts) {
+function fmtTs(ts, tz = "Europe/Madrid") {
   if (!ts) return "—";
-  const d = new Date(ts);
-  return d.toLocaleString("es-ES", { dateStyle: "short", timeStyle: "medium" });
+  const d = new Date(ts.endsWith?.("Z") ? ts : ts + "Z");
+  return d.toLocaleString("es-ES", { dateStyle: "short", timeStyle: "medium", timeZone: tz });
 }
 
 function buildQuery(params) {
@@ -36,6 +37,7 @@ function buildQuery(params) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 export default function AdmLog() {
+  const tz = useContext(TimezoneContext);
   const [rows,      setRows]     = useState([]);
   const [loading,   setLoading]  = useState(true);
   const [error,     setError]    = useState("");
@@ -219,7 +221,7 @@ export default function AdmLog() {
               return (
                 <tr key={r.id} style={{ borderBottom: `1px solid ${COLORS.border}`, background: i % 2 === 0 ? "#fff" : "#FCFCFC" }}>
                   <td style={{ padding: "8px 14px", fontSize: 11, color: COLORS.grayLight, fontFamily: "monospace", whiteSpace: "nowrap" }}>
-                    {fmtTs(r.timestamp)}
+                    {fmtTs(r.timestamp, tz)}
                   </td>
                   <td style={{ padding: "8px 14px", fontSize: 12, color: COLORS.gray, fontFamily: B, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {r.user_email}
