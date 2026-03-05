@@ -48,6 +48,8 @@ import AdmLog             from "./pages/adm/AdmLog.jsx";
 import AdmAuth            from "./pages/adm/AdmAuth.jsx";
 import AdmUI              from "./pages/adm/AdmUI.jsx";
 import AdmRegionalSettings from "./pages/adm/AdmRegionalSettings.jsx";
+import AdmDbLogs           from "./pages/adm/AdmDbLogs.jsx";
+import AdmEmail            from "./pages/adm/AdmEmail.jsx";
 import Novedades          from "./pages/Novedades.jsx";
 import Solicitudes        from "./pages/Solicitudes.jsx";
 import Login              from "./pages/Login.jsx";
@@ -458,6 +460,8 @@ const Layout = ({ user }) => {
                 <Route path="/adm/sec/v-auth"    element={<GuardedRoute screenId="v-auth"   element={<AdmAuth />} />} />
                 <Route path="/adm/ui/v-ui"       element={<GuardedRoute screenId="v-ui"     element={<AdmUI />} />} />
                 <Route path="/adm/cfg/v-regional" element={<GuardedRoute screenId="v-regional" element={<AdmRegionalSettings />} />} />
+                <Route path="/adm/cfg/v-email"   element={<GuardedRoute screenId="v-email"   element={<AdmEmail />} />} />
+                <Route path="/adm/cfg/v-dblogs"  element={<GuardedRoute screenId="v-dblogs"  element={<AdmDbLogs />} />} />
                 <Route path="/admin/usuarios"    element={<AdminUsers />} />
                 <Route path="/perfil"            element={<Profile user={user} />} />
                 <Route path="/novedades"         element={<Novedades />} />

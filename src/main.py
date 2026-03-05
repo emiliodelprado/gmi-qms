@@ -929,6 +929,260 @@ def delete_solicitud(
                      ip_address=_client_ip(request))
 
 
+# ── EMAIL CONFIG ─────────────────────────────────────────────────────────────
+
+def _mask_key(val: Optional[str]) -> Optional[str]:
+    if not val:
+        return None
+    return "****" + val[-4:] if len(val) > 4 else "****"
+
+
+@app.get("/api/adm/email-config", response_model=schemas.EmailConfigRead)
+def get_email_config(
+    db: Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    row = crud.get_email_config(db)
+    return schemas.EmailConfigRead(
+        provider=row.provider,
+        api_key=_mask_key(row.api_key),
+        api_secret=_mask_key(row.api_secret),
+        sender_name=row.sender_name,
+        sender_email=row.sender_email,
+        reply_to=row.reply_to,
+        signature_html=row.signature_html,
+        updated_at=row.updated_at,
+    )
+
+
+@app.put("/api/adm/email-config", response_model=schemas.EmailConfigRead)
+def update_email_config(
+    payload: schemas.EmailConfigUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    crud.update_email_config(db, payload)
+    crud.write_audit(db, user.email, "EDIT", "email_config",
+                     company_id=user.company_id, brand_id=user.brand_id,
+                     ip_address=_client_ip(request))
+    return get_email_config(db=db, user=user)
+
+
+# ── EMAIL TEMPLATES ──────────────────────────────────────────────────────────
+@app.get("/api/adm/email-templates", response_model=List[schemas.EmailTemplateRead])
+def list_email_templates(
+    db: Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    return crud.get_email_templates(db)
+
+
+@app.post("/api/adm/email-templates", response_model=schemas.EmailTemplateRead, status_code=201)
+def create_email_template(
+    payload: schemas.EmailTemplateCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    obj = crud.create_email_template(db, payload)
+    crud.write_audit(db, user.email, "CREATE", f"email_template:{obj.name}",
+                     company_id=user.company_id, brand_id=user.brand_id,
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.put("/api/adm/email-templates/{tid}", response_model=schemas.EmailTemplateRead)
+def update_email_template(
+    tid: int,
+    payload: schemas.EmailTemplateCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    obj = crud.update_email_template(db, tid, payload)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Plantilla no encontrada")
+    crud.write_audit(db, user.email, "EDIT", f"email_template:{obj.name}",
+                     company_id=user.company_id, brand_id=user.brand_id,
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.delete("/api/adm/email-templates/{tid}", status_code=204)
+def delete_email_template(
+    tid: int,
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    tpl = crud.get_email_template(db, tid)
+    if not crud.delete_email_template(db, tid):
+        raise HTTPException(status_code=404, detail="Plantilla no encontrada")
+    crud.write_audit(db, user.email, "DELETE", f"email_template:{tpl.name if tpl else tid}",
+                     company_id=user.company_id, brand_id=user.brand_id,
+                     ip_address=_client_ip(request))
+
+
+# ── EMAIL TEST ───────────────────────────────────────────────────────────────
+@app.post("/api/adm/email-test")
+def send_test_email(
+    payload: schemas.EmailTestRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    config = crud.get_email_config(db)
+    if not config.api_key:
+        raise HTTPException(status_code=400, detail="Configura primero las credenciales del proveedor")
+    template = crud.get_email_template(db, payload.template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="Plantilla no encontrada")
+
+    # Substitute {{firma}}
+    html_body = (template.body_html or "").replace("{{firma}}", config.signature_html or "")
+
+    import urllib.request, urllib.error, urllib.parse, json, base64
+
+    try:
+        if config.provider == "mailjet":
+            url = "https://api.mailjet.com/v3.1/send"
+            data = json.dumps({"Messages": [{
+                "From": {"Email": config.sender_email, "Name": config.sender_name or ""},
+                "ReplyTo": {"Email": config.reply_to} if config.reply_to else None,
+                "To": [{"Email": payload.recipient_email}],
+                "Subject": template.subject,
+                "HTMLPart": html_body,
+            }]}).encode()
+            creds = base64.b64encode(f"{config.api_key}:{config.api_secret}".encode()).decode()
+            req = urllib.request.Request(url, data=data, headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Basic {creds}",
+            })
+            urllib.request.urlopen(req, timeout=15)
+
+        elif config.provider == "acumbamail":
+            url = "https://acumbamail.com/api/1/sendOne/"
+            form_data = urllib.parse.urlencode({
+                "auth_token": config.api_key,
+                "from_name": config.sender_name or "",
+                "from_email": config.sender_email or "",
+                "to": payload.recipient_email,
+                "subject": template.subject,
+                "body": html_body,
+            }).encode()
+            req = urllib.request.Request(url, data=form_data,
+                                         headers={"Content-Type": "application/x-www-form-urlencoded"})
+            urllib.request.urlopen(req, timeout=15)
+        else:
+            raise HTTPException(status_code=400, detail=f"Proveedor '{config.provider}' no soportado")
+
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="replace")[:500]
+        raise HTTPException(status_code=502, detail=f"Error del proveedor: {e.code} — {body}")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Error de conexión: {str(e)}")
+
+    crud.write_audit(db, user.email, "EMAIL_TEST",
+                     f"to:{payload.recipient_email} template:{template.name}",
+                     company_id=user.company_id, brand_id=user.brand_id,
+                     ip_address=_client_ip(request))
+    return {"ok": True, "message": f"Email de prueba enviado a {payload.recipient_email}"}
+
+
+# ── DB INSPECTION (IT only) ──────────────────────────────────────────────────
+from sqlalchemy import text as sa_text, inspect as sa_inspect
+
+@app.get("/api/adm/db/tables")
+def list_db_tables(user=Depends(require_it)):
+    """Return list of user table names in the public schema."""
+    insp = sa_inspect(engine)
+    return sorted(insp.get_table_names(schema="public"))
+
+
+_TRUNCATE_AT = 150  # chars — values longer than this are truncated in the list view
+
+
+@app.get("/api/adm/db/tables/{table_name}")
+def get_db_table(
+    table_name: str,
+    limit: int = Query(default=200, le=1000),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    """Return schema (columns) and rows for a given table (large values truncated)."""
+    insp = sa_inspect(engine)
+    tables = insp.get_table_names(schema="public")
+    if table_name not in tables:
+        raise HTTPException(status_code=404, detail=f"Tabla '{table_name}' no encontrada")
+
+    columns = insp.get_columns(table_name, schema="public")
+    col_info = [{"name": c["name"], "type": str(c["type"]), "nullable": c.get("nullable", True)} for c in columns]
+
+    # Sanitize table name (already validated against real table list)
+    result = db.execute(
+        sa_text(f'SELECT * FROM "{table_name}" ORDER BY 1 LIMIT :lim OFFSET :off'),
+        {"lim": limit, "off": offset},
+    )
+    rows = [dict(r._mapping) for r in result]
+
+    # Truncate large string values to save bandwidth
+    large_columns = set()
+    processed_rows = []
+    for row in rows:
+        pr = {}
+        for k, v in row.items():
+            if isinstance(v, str) and len(v) > _TRUNCATE_AT:
+                large_columns.add(k)
+                pr[k] = v[:_TRUNCATE_AT] + "…"
+            else:
+                pr[k] = v
+        processed_rows.append(pr)
+
+    # Total count
+    count_result = db.execute(sa_text(f'SELECT COUNT(*) FROM "{table_name}"'))
+    total = count_result.scalar()
+
+    return {
+        "table": table_name, "columns": col_info,
+        "rows": processed_rows, "total": total,
+        "large_columns": sorted(large_columns),
+    }
+
+
+@app.get("/api/adm/db/tables/{table_name}/row/{row_offset}")
+def get_db_table_row(
+    table_name: str,
+    row_offset: int,
+    db: Session = Depends(get_db),
+    user=Depends(require_it),
+):
+    """Return a single full (untruncated) row for detail view."""
+    insp = sa_inspect(engine)
+    tables = insp.get_table_names(schema="public")
+    if table_name not in tables:
+        raise HTTPException(status_code=404, detail=f"Tabla '{table_name}' no encontrada")
+
+    result = db.execute(
+        sa_text(f'SELECT * FROM "{table_name}" ORDER BY 1 LIMIT 1 OFFSET :off'),
+        {"off": row_offset},
+    )
+    row = result.fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="Fila no encontrada")
+    return dict(row._mapping)
+
+
 # ── Serve frontend React (catch-all — siempre al final) ──────────────────────
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse

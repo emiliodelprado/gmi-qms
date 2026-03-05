@@ -1128,3 +1128,90 @@ def delete_solicitud(db: Session, sid: int) -> bool:
     obj.activo = 0
     db.commit()
     return True
+
+
+# ── Email Config ─────────────────────────────────────────────────────────────
+def get_email_config(db: Session) -> models.EmailConfig:
+    """Return the single email_config row (always id=1)."""
+    row = db.query(models.EmailConfig).filter(models.EmailConfig.id == 1).first()
+    if not row:
+        row = models.EmailConfig(id=1, provider="mailjet")
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+    return row
+
+
+def update_email_config(
+    db: Session, payload: schemas.EmailConfigUpdate
+) -> models.EmailConfig:
+    row = get_email_config(db)
+    row.provider = payload.provider
+    # Only update keys if a real (non-masked) value is sent
+    if payload.api_key and not payload.api_key.startswith("****"):
+        row.api_key = payload.api_key
+    if payload.api_secret and not payload.api_secret.startswith("****"):
+        row.api_secret = payload.api_secret
+    row.sender_name    = payload.sender_name
+    row.sender_email   = payload.sender_email
+    row.reply_to       = payload.reply_to
+    if payload.signature_html is not None:
+        row.signature_html = payload.signature_html
+    row.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(row)
+    return row
+
+
+# ── Email Templates ──────────────────────────────────────────────────────────
+def get_email_templates(db: Session) -> List[models.EmailTemplate]:
+    return (
+        db.query(models.EmailTemplate)
+        .filter(models.EmailTemplate.activo == 1)
+        .order_by(models.EmailTemplate.name)
+        .all()
+    )
+
+
+def get_email_template(db: Session, tid: int) -> Optional[models.EmailTemplate]:
+    return (
+        db.query(models.EmailTemplate)
+        .filter(models.EmailTemplate.id == tid, models.EmailTemplate.activo == 1)
+        .first()
+    )
+
+
+def create_email_template(
+    db: Session, payload: schemas.EmailTemplateCreate
+) -> models.EmailTemplate:
+    obj = models.EmailTemplate(
+        name=payload.name, subject=payload.subject, body_html=payload.body_html,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def update_email_template(
+    db: Session, tid: int, payload: schemas.EmailTemplateCreate
+) -> Optional[models.EmailTemplate]:
+    obj = get_email_template(db, tid)
+    if not obj:
+        return None
+    obj.name       = payload.name
+    obj.subject    = payload.subject
+    obj.body_html  = payload.body_html
+    obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def delete_email_template(db: Session, tid: int) -> bool:
+    obj = get_email_template(db, tid)
+    if not obj:
+        return False
+    obj.activo = 0
+    db.commit()
+    return True

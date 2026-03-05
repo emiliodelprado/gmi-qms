@@ -56,6 +56,7 @@ const SCREENS = [
   { id: "v-auth",     mod: "ADM", label: "Métodos de Autenticación" },
   { id: "v-ui",       mod: "ADM", label: "Personalización UI"       },
   { id: "v-regional", mod: "ADM", label: "Configuración Regional"   },
+  { id: "v-email",    mod: "ADM", label: "Envíos de email"          },
 ];
 
 const PERMS = ["—", "R", "R/W"];

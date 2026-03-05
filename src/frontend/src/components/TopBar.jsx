@@ -38,6 +38,8 @@ const SEARCH_INDEX = Object.entries({
   "/adm/sec/v-auth":     "Métodos de Autenticación",
   "/adm/ui/v-ui":        "Personalización de Interfaz",
   "/adm/cfg/v-regional": "Configuración Regional",
+  "/adm/cfg/v-email":    "Envíos de email",
+  "/adm/cfg/v-dblogs":   "Base de Datos",
 }).filter(([path]) => !SEARCH_EXCLUDE.has(path))
   .map(([path, title]) => ({ path, title }));
 
@@ -193,6 +195,8 @@ const PAGE_TITLES = {
   "/adm/sec/v-auth":     "Métodos de Autenticación",
   "/adm/ui/v-ui":        "Personalización de Interfaz",
   "/adm/cfg/v-regional": "Configuración Regional",
+  "/adm/cfg/v-email":    "Envíos de email",
+  "/adm/cfg/v-dblogs":   "Base de Datos",
   "/admin/usuarios":     "Gestión de Usuarios",
   "/perfil":          "Mi Perfil",
   "/novedades":       "Novedades",

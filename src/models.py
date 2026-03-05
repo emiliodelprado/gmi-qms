@@ -285,3 +285,31 @@ class RegionalSettings(Base):
     id         = Column(Integer, primary_key=True)
     timezone   = Column(String(100), nullable=False, default="Europe/Madrid")
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class EmailConfig(Base):
+    """App-wide email provider configuration (single-row table, id=1)."""
+    __tablename__ = "email_config"
+
+    id             = Column(Integer, primary_key=True)
+    provider       = Column(String(20), nullable=False, default="mailjet")
+    api_key        = Column(String(500), nullable=True)
+    api_secret     = Column(String(500), nullable=True)
+    sender_name    = Column(String(200), nullable=True)
+    sender_email   = Column(String(200), nullable=True)
+    reply_to       = Column(String(200), nullable=True)
+    signature_html = Column(Text, nullable=True)
+    updated_at     = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class EmailTemplate(Base):
+    """Reusable email templates with HTML body."""
+    __tablename__ = "email_templates"
+
+    id         = Column(Integer, primary_key=True, index=True)
+    name       = Column(String(200), nullable=False)
+    subject    = Column(String(500), nullable=False)
+    body_html  = Column(Text, nullable=True)
+    activo     = Column(Integer, default=1)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

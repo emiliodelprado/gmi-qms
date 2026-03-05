@@ -355,3 +355,52 @@ class RegionalSettingsRead(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# ── Email Config ─────────────────────────────────────────────────────────────
+class EmailConfigUpdate(BaseModel):
+    provider:       str
+    api_key:        Optional[str] = None
+    api_secret:     Optional[str] = None
+    sender_name:    Optional[str] = None
+    sender_email:   Optional[str] = None
+    reply_to:       Optional[str] = None
+    signature_html: Optional[str] = None
+
+
+class EmailConfigRead(BaseModel):
+    provider:       str
+    api_key:        Optional[str] = None
+    api_secret:     Optional[str] = None
+    sender_name:    Optional[str] = None
+    sender_email:   Optional[str] = None
+    reply_to:       Optional[str] = None
+    signature_html: Optional[str] = None
+    updated_at:     Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+# ── Email Templates ──────────────────────────────────────────────────────────
+class EmailTemplateCreate(BaseModel):
+    name:      str
+    subject:   str
+    body_html: Optional[str] = None
+
+
+class EmailTemplateRead(BaseModel):
+    id:         int
+    name:       str
+    subject:    str
+    body_html:  Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class EmailTestRequest(BaseModel):
+    recipient_email: str
+    template_id:     int

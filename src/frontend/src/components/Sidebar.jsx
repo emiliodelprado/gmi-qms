@@ -116,6 +116,8 @@ export const NAV_MODULES = [
       ]},
       { id: "cfg",      code: "CFG",  label: "Configuración", screens: [
         { id: "v-regional", label: "Configuración Regional", path: "/adm/cfg/v-regional" },
+        { id: "v-email",    label: "Envíos de email",        path: "/adm/cfg/v-email"    },
+        { id: "v-dblogs",   label: "Base de Datos",          path: "/adm/cfg/v-dblogs"   },
       ]},
     ],
   },
