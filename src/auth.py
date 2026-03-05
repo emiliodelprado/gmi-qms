@@ -72,8 +72,12 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> schemas
     active_companies = {t.company_id for t in user.tenants if t.activo == 1}
     valid_default    = bool(user.default_company_id and user.default_company_id in active_companies)
 
+    # Ensure user_id is always the numeric DB id (SAML may have stored email)
+    raw_uid = payload["user_id"]
+    resolved_uid = str(user.id) if not raw_uid.isdigit() else raw_uid
+
     return schemas.UserInfo(
-        user_id            = payload["user_id"],
+        user_id            = resolved_uid,
         email              = email,
         name               = payload.get("name", ""),
         roles              = payload.get("roles", []),

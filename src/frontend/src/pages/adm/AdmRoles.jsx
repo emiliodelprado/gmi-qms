@@ -14,45 +14,48 @@ const ROL_CFG = {
   "Auditor":     { bg: "#E8EAF6", color: "#3949AB" },
 };
 
-// ─── 30 pantallas ─────────────────────────────────────────────────────────────
+// ─── 33 pantallas ─────────────────────────────────────────────────────────────
 const SCREENS = [
   // EST
-  { id: "v-exe",    mod: "EST", label: "Vista Ejecutiva"          },
-  { id: "v-obj",    mod: "EST", label: "Estado de Objetivos"      },
-  { id: "v-dafo",   mod: "EST", label: "Matriz DAFO/CAME"         },
-  { id: "v-org",    mod: "EST", label: "Organigrama"              },
-  { id: "v-proc",   mod: "EST", label: "Listado de Procesos"      },
-  { id: "v-part",   mod: "EST", label: "Partes Interesadas"       },
-  { id: "v-pol",    mod: "EST", label: "Política de Calidad"      },
+  { id: "v-exe",      mod: "EST", label: "Vista Ejecutiva"          },
+  { id: "v-obj",      mod: "EST", label: "Estado de Objetivos"      },
+  { id: "v-dafo",     mod: "EST", label: "Matriz DAFO/CAME"         },
+  { id: "v-org",      mod: "EST", label: "Organigrama"              },
+  { id: "v-proc",     mod: "EST", label: "Listado de Procesos"      },
+  { id: "v-part",     mod: "EST", label: "Partes Interesadas"       },
+  { id: "v-pol",      mod: "EST", label: "Política de Calidad"      },
   // RSG
-  { id: "v-calc",   mod: "RSG", label: "Calculadora de Riesgos"   },
-  { id: "v-map9",   mod: "RSG", label: "Mapa ISO 9001"            },
-  { id: "v-map27",  mod: "RSG", label: "Mapa ISO 27001"           },
-  { id: "v-plan",   mod: "RSG", label: "Plan de Acciones"         },
+  { id: "v-calc",     mod: "RSG", label: "Calculadora de Riesgos"   },
+  { id: "v-map9",     mod: "RSG", label: "Mapa ISO 9001"            },
+  { id: "v-map27",    mod: "RSG", label: "Mapa ISO 27001"           },
+  { id: "v-plan",     mod: "RSG", label: "Plan de Acciones"         },
   // OPE
-  { id: "v-oft",    mod: "OPE", label: "Master de Ofertas"        },
-  { id: "v-ent",    mod: "OPE", label: "Seguimiento Entregables"  },
+  { id: "v-oft",      mod: "OPE", label: "Master de Ofertas"        },
+  { id: "v-ent",      mod: "OPE", label: "Seguimiento Entregables"  },
   // TAL
-  { id: "v-perf",   mod: "TAL", label: "Ficha Colaborador"        },
-  { id: "v-for",    mod: "TAL", label: "Gestión de Formación"     },
-  { id: "v-chck",   mod: "TAL", label: "Checklist Bienvenida"     },
+  { id: "v-perf",     mod: "TAL", label: "Ficha Colaborador"        },
+  { id: "v-for",      mod: "TAL", label: "Gestión de Formación"     },
+  { id: "v-chck",     mod: "TAL", label: "Checklist Bienvenida"     },
   // SOP
-  { id: "v-maes",   mod: "SOP", label: "Listado Maestro Doc."     },
-  { id: "v-prov",   mod: "SOP", label: "Proveedores"              },
-  { id: "v-dig",    mod: "SOP", label: "Activos de Información"   },
-  { id: "v-equ",    mod: "SOP", label: "Equipamiento"             },
+  { id: "v-maes",     mod: "SOP", label: "Listado Maestro Doc."     },
+  { id: "v-prov",     mod: "SOP", label: "Proveedores"              },
+  { id: "v-dig",      mod: "SOP", label: "Activos de Información"   },
+  { id: "v-equ",      mod: "SOP", label: "Equipamiento"             },
   // MEJ
-  { id: "v-aud",    mod: "MEJ", label: "Planificación Auditorías" },
-  { id: "v-nc",     mod: "MEJ", label: "Gestión de NC"            },
-  { id: "v-canal",  mod: "MEJ", label: "Canal de Denuncias"       },
+  { id: "v-aud",      mod: "MEJ", label: "Planificación Auditorías" },
+  { id: "v-nc",       mod: "MEJ", label: "Gestión de NC"            },
+  { id: "v-canal",    mod: "MEJ", label: "Canal de Denuncias"       },
   // ADM
-  { id: "v-estr",   mod: "ADM", label: "Estructura Corporativa"   },
-  { id: "v-edproc", mod: "ADM", label: "Editor de Procesos"       },
-  { id: "v-user",   mod: "ADM", label: "Gestión de Usuarios"      },
-  { id: "v-roles",  mod: "ADM", label: "Roles y Permisos"         },
-  { id: "v-log",    mod: "ADM", label: "Registro de Actividad"    },
-  { id: "v-auth",   mod: "ADM", label: "Métodos de Autenticación" },
-  { id: "v-ui",     mod: "ADM", label: "Personalización UI"       },
+  { id: "v-estr",     mod: "ADM", label: "Estructura Corporativa"   },
+  { id: "v-depart",   mod: "ADM", label: "Departamentos"            },
+  { id: "v-puestos",  mod: "ADM", label: "Puestos"                  },
+  { id: "v-edproc",   mod: "ADM", label: "Editor de Procesos"       },
+  { id: "v-user",     mod: "ADM", label: "Gestión de Usuarios"      },
+  { id: "v-roles",    mod: "ADM", label: "Roles y Permisos"         },
+  { id: "v-log",      mod: "ADM", label: "Registro de Actividad"    },
+  { id: "v-auth",     mod: "ADM", label: "Métodos de Autenticación" },
+  { id: "v-ui",       mod: "ADM", label: "Personalización UI"       },
+  { id: "v-regional", mod: "ADM", label: "Configuración Regional"   },
 ];
 
 const PERMS = ["—", "R", "R/W"];
@@ -86,7 +89,7 @@ function initMatrix() {
         else if (["v-perf","v-for"].includes(sc.id))                                      perm = "R";
         else if (["v-maes","v-prov"].includes(sc.id))                                     perm = "R";
         else if (["v-aud","v-nc"].includes(sc.id))                                        perm = "R";
-        else if (["v-estr","v-ui"].includes(sc.id))                                       perm = "R/W";
+        else if (["v-estr","v-depart","v-puestos","v-ui"].includes(sc.id))                perm = "R/W";
 
       } else if (role === "Calidad") {
         if (["v-exe","v-obj","v-dafo","v-proc","v-part","v-pol"].includes(sc.id))         perm = "R/W";
@@ -96,7 +99,8 @@ function initMatrix() {
         else if (["v-perf","v-for","v-chck"].includes(sc.id))                             perm = "R/W";
         else if (["v-maes","v-prov","v-dig","v-equ"].includes(sc.id))                     perm = "R/W";
         else if (["v-aud","v-nc","v-canal"].includes(sc.id))                              perm = "R/W";
-        else if (["v-estr","v-edproc","v-user","v-roles","v-log"].includes(sc.id))        perm = "R/W";
+        else if (["v-estr","v-depart","v-puestos","v-edproc","v-user","v-roles","v-log"].includes(sc.id)) perm = "R/W";
+        else if (["v-regional"].includes(sc.id))                                         perm = "R";
 
       } else if (role === "Partners") {
         if (["v-oft","v-ent"].includes(sc.id))                                            perm = "R/W";
@@ -111,6 +115,7 @@ function initMatrix() {
         else if (["v-perf","v-for","v-chck"].includes(sc.id))                             perm = "R/W";
         else if (["v-maes","v-prov","v-equ"].includes(sc.id))                             perm = "R";
         else if (["v-aud","v-nc"].includes(sc.id))                                        perm = "R";
+        else if (["v-depart","v-puestos"].includes(sc.id))                                perm = "R";
 
       } else if (role === "Colaborador") {
         if (["v-pol"].includes(sc.id))                                                    perm = "R";
@@ -121,7 +126,7 @@ function initMatrix() {
 
       } else if (role === "Auditor") {
         if (["v-aud","v-nc"].includes(sc.id))                                             perm = "R/W";
-        else if (["v-canal","v-user","v-roles","v-auth"].includes(sc.id))                 perm = "—";
+        else if (["v-canal","v-user","v-roles","v-auth","v-regional"].includes(sc.id))    perm = "—";
         else                                                                              perm = "R";
       }
 

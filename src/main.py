@@ -62,13 +62,21 @@ def _client_ip(request: Request) -> str:
 # ── SSO / SAML auth ─────────────────────────────────────────────────────────────
 @app.post("/auth/saml/callback")
 async def saml_callback(request: Request, db: Session = Depends(get_db)):
-    from saml_handler import process_saml_response
+    from saml_handler import process_saml_response, verify_session_token, _sign_token
     session_token = await process_saml_response(request)
 
-    from saml_handler import verify_session_token
     payload = verify_session_token(session_token)
-    crud.update_last_login(db, payload["email"])
-    crud.write_audit(db, payload["email"], "LOGIN", "Sesión SSO", ip_address=_client_ip(request))
+    email = payload["email"]
+
+    # Resolve numeric DB user ID (SAML puts email as user_id)
+    user = crud.get_user_access_by_email(db, email)
+    if user:
+        payload["user_id"] = str(user.id)
+        payload["name"] = user.name or payload.get("name", "")
+        session_token = _sign_token(payload)
+
+    crud.update_last_login(db, email)
+    crud.write_audit(db, email, "LOGIN", "Sesión SSO", ip_address=_client_ip(request))
 
     response = RedirectResponse(url="/", status_code=302)
     response.set_cookie(
@@ -845,6 +853,80 @@ def update_regional_settings(
         ip_address=_client_ip(request),
     )
     return obj
+
+
+# ── SOLICITUDES ──────────────────────────────────────────────────────────────
+@app.get("/api/solicitudes", response_model=List[schemas.SolicitudRead])
+def list_solicitudes(
+    db:   Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    ensure_tables()
+    is_admin = user.role in ("IT", "admin", "Calidad", "Dirección")
+    return crud.get_solicitudes(
+        db,
+        company_id=user.company_id,
+        brand_id=user.brand_id,
+        user_id=None if is_admin else int(user.user_id),
+    )
+
+
+@app.post("/api/solicitudes", response_model=schemas.SolicitudRead, status_code=201)
+def create_solicitud(
+    payload: schemas.SolicitudCreate,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(get_current_user),
+):
+    ensure_tables()
+    obj = crud.create_solicitud(
+        db, payload,
+        user_id=int(user.user_id),
+        user_email=user.email,
+        user_name=user.name or user.email,
+        company_id=user.company_id,
+        brand_id=user.brand_id,
+    )
+    crud.write_audit(db, user.email, "SOLICITUD_CREATE",
+                     f"solicitud:{obj.id} {payload.pantalla}",
+                     company_id=user.company_id, brand_id=user.brand_id,
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.put("/api/solicitudes/{sid}", response_model=schemas.SolicitudRead)
+def update_solicitud(
+    sid:     int,
+    payload: schemas.SolicitudUpdate,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    obj = crud.update_solicitud(db, sid, payload)
+    if not obj:
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    crud.write_audit(db, user.email, "SOLICITUD_EDIT",
+                     f"solicitud:{sid}",
+                     company_id=user.company_id, brand_id=user.brand_id,
+                     ip_address=_client_ip(request))
+    return obj
+
+
+@app.delete("/api/solicitudes/{sid}", status_code=204)
+def delete_solicitud(
+    sid:     int,
+    request: Request,
+    db:      Session = Depends(get_db),
+    user=Depends(require_admin),
+):
+    ensure_tables()
+    if not crud.delete_solicitud(db, sid):
+        raise HTTPException(status_code=404, detail="Solicitud no encontrada")
+    crud.write_audit(db, user.email, "SOLICITUD_DELETE",
+                     f"solicitud:{sid}",
+                     company_id=user.company_id, brand_id=user.brand_id,
+                     ip_address=_client_ip(request))
 
 
 # ── Serve frontend React (catch-all — siempre al final) ──────────────────────

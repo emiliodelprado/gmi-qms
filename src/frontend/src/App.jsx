@@ -388,19 +388,25 @@ const Layout = ({ user }) => {
   };
   const closeSolicitud = () => setShowSol(false);
 
-  const handleSolSave = () => {
+  const [solSaving, setSolSaving] = useState(false);
+
+  const handleSolSave = async () => {
     if (!solForm.pantalla.trim() || !solForm.detalle.trim()) return;
-    const nuevo = {
-      id:       Date.now(),
-      usuario:  user?.name || user?.email || "Usuario",
-      pantalla: solForm.pantalla.trim(),
-      fecha:    new Date().toISOString().slice(0, 10),
-      estado:   "enviada",
-      detalle:  solForm.detalle.trim(),
-      comentario_admin: "",
-    };
-    window.dispatchEvent(new CustomEvent("nueva-solicitud", { detail: nuevo }));
-    setShowSol(false);
+    setSolSaving(true);
+    try {
+      const res = await apiFetch("/api/solicitudes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pantalla: solForm.pantalla.trim(), detalle: solForm.detalle.trim() }),
+      });
+      if (!res.ok) throw new Error();
+      window.dispatchEvent(new CustomEvent("solicitudes-refresh"));
+      setShowSol(false);
+    } catch {
+      alert("Error al enviar la solicitud.");
+    } finally {
+      setSolSaving(false);
+    }
   };
 
   const solCtx = { open: openSolicitud, prevScreenLabel, user };
@@ -543,12 +549,12 @@ const Layout = ({ user }) => {
                       background: "#fff", cursor: "pointer", fontSize: 13,
                       color: COLORS.grayLight, fontFamily: B,
                     }}>Cancelar</button>
-                    <button onClick={handleSolSave} disabled={!solForm.pantalla.trim() || !solForm.detalle.trim()} style={{
+                    <button onClick={handleSolSave} disabled={solSaving || !solForm.pantalla.trim() || !solForm.detalle.trim()} style={{
                       padding: "9px 22px", border: "none", borderRadius: 6,
-                      background: (!solForm.pantalla.trim() || !solForm.detalle.trim()) ? "#CCC" : COLORS.red,
-                      color: "#fff", cursor: (!solForm.pantalla.trim() || !solForm.detalle.trim()) ? "not-allowed" : "pointer",
+                      background: (solSaving || !solForm.pantalla.trim() || !solForm.detalle.trim()) ? "#CCC" : COLORS.red,
+                      color: "#fff", cursor: (solSaving || !solForm.pantalla.trim() || !solForm.detalle.trim()) ? "not-allowed" : "pointer",
                       fontSize: 13, fontWeight: 800, fontFamily: H,
-                    }}>Enviar solicitud</button>
+                    }}>{solSaving ? "Enviando…" : "Enviar solicitud"}</button>
                   </div>
                 </div>
               </div>

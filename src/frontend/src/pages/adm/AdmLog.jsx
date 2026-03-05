@@ -18,6 +18,9 @@ const ACCION_CFG = {
   STRUCTURE_CREATE: { bg: "#E8EAF6", color: "#1A237E",  label: "Estructura creada" },
   STRUCTURE_EDIT:   { bg: "#E3F2FD", color: "#1565C0",  label: "Estructura editada" },
   STRUCTURE_DELETE: { bg: "#FFEBEE", color: "#C62828",  label: "Estructura eliminada" },
+  SOLICITUD_CREATE: { bg: "#E3F2FD", color: "#1565C0",  label: "Solicitud creada" },
+  SOLICITUD_EDIT:   { bg: "#FFF8E1", color: "#F57F17",  label: "Solicitud editada" },
+  SOLICITUD_DELETE: { bg: "#FFEBEE", color: "#C62828",  label: "Solicitud eliminada" },
 };
 
 const ALL_ACTIONS = Object.entries(ACCION_CFG).map(([k, v]) => ({ value: k, label: v.label }));

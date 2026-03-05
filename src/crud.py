@@ -1058,3 +1058,73 @@ def update_regional_settings(
     db.commit()
     db.refresh(row)
     return row
+
+
+# ── Solicitudes ──────────────────────────────────────────────────────────────
+def get_solicitudes(
+    db: Session,
+    company_id: Optional[str] = None,
+    brand_id: Optional[str] = None,
+    user_id: Optional[int] = None,
+) -> List[models.Solicitud]:
+    q = db.query(models.Solicitud).filter(models.Solicitud.activo == 1)
+    if company_id:
+        q = q.filter(models.Solicitud.company_id == company_id)
+    if brand_id:
+        q = q.filter(models.Solicitud.brand_id == brand_id)
+    if user_id:
+        q = q.filter(models.Solicitud.user_id == user_id)
+    return q.order_by(desc(models.Solicitud.created_at)).all()
+
+
+def get_solicitud(db: Session, sid: int) -> Optional[models.Solicitud]:
+    return (
+        db.query(models.Solicitud)
+        .filter(models.Solicitud.id == sid, models.Solicitud.activo == 1)
+        .first()
+    )
+
+
+def create_solicitud(
+    db: Session, payload: schemas.SolicitudCreate,
+    user_id: int, user_email: str, user_name: str,
+    company_id: Optional[str] = None, brand_id: Optional[str] = None,
+) -> models.Solicitud:
+    obj = models.Solicitud(
+        user_id    = user_id,
+        user_email = user_email,
+        user_name  = user_name,
+        pantalla   = payload.pantalla,
+        detalle    = payload.detalle,
+        company_id = company_id,
+        brand_id   = brand_id,
+    )
+    db.add(obj)
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def update_solicitud(
+    db: Session, sid: int, payload: schemas.SolicitudUpdate,
+) -> Optional[models.Solicitud]:
+    obj = get_solicitud(db, sid)
+    if not obj:
+        return None
+    if payload.estado is not None:
+        obj.estado = payload.estado
+    if payload.comentario_admin is not None:
+        obj.comentario_admin = payload.comentario_admin
+    obj.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(obj)
+    return obj
+
+
+def delete_solicitud(db: Session, sid: int) -> bool:
+    obj = get_solicitud(db, sid)
+    if not obj:
+        return False
+    obj.activo = 0
+    db.commit()
+    return True

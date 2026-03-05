@@ -1,9 +1,9 @@
-import { useState, useEffect, useContext } from "react";
-import { COLORS, H, B, Icon, PageHeader, Badge, Card, BtnPrimary, inputStyle } from "../constants.jsx";
+import { useState, useEffect, useCallback, useContext } from "react";
+import { COLORS, H, B, Icon, PageHeader, Badge, Card, BtnPrimary, inputStyle, apiFetch } from "../constants.jsx";
 import { SolicitudContext } from "../contexts.jsx";
 
 // ── Roles that can manage solicitudes ────────────────────────────────────────
-const ADMIN_ROLES = new Set(["IT", "admin"]);
+const ADMIN_ROLES = new Set(["IT", "admin", "Calidad", "Dirección"]);
 
 // ── Status config ────────────────────────────────────────────────────────────
 const ESTADOS = [
@@ -14,15 +14,6 @@ const ESTADOS = [
   { value: "descartada", label: "Descartada", bg: "#FCE4EC", color: "#C62828" },
 ];
 const estadoMap = Object.fromEntries(ESTADOS.map(e => [e.value, e]));
-
-// ── Mock data ────────────────────────────────────────────────────────────────
-const MOCK = [
-  { id: 1, usuario: "Ana García",      pantalla: "Vista Ejecutiva",          fecha: "2026-02-28", estado: "resuelta",   detalle: "Sería útil poder exportar el dashboard a PDF para las reuniones de dirección.", comentario_admin: "Implementado en v0.4.0" },
-  { id: 2, usuario: "Carlos Ruiz",     pantalla: "Gestión de Formación",     fecha: "2026-03-01", estado: "en_proceso", detalle: "Añadir filtro por departamento en el listado de formaciones planificadas.", comentario_admin: "" },
-  { id: 3, usuario: "Lucía Fernández", pantalla: "Homologación Proveedores", fecha: "2026-03-02", estado: "leida",      detalle: "El cuestionario de evaluación debería permitir adjuntar documentos de soporte.", comentario_admin: "" },
-  { id: 4, usuario: "Pedro Martín",    pantalla: "Calculadora de Riesgos",   fecha: "2026-03-03", estado: "enviada",    detalle: "Incluir un campo de notas en cada riesgo para justificar la valoración asignada.", comentario_admin: "" },
-  { id: 5, usuario: "María López",     pantalla: "Master de Ofertas",        fecha: "2026-02-20", estado: "descartada", detalle: "Poder duplicar ofertas existentes como plantilla.", comentario_admin: "Funcionalidad ya disponible con el botón copiar" },
-];
 
 // ── Table styles ─────────────────────────────────────────────────────────────
 const thStyle = {
@@ -38,30 +29,62 @@ const tdStyle = {
 
 // ── Component ────────────────────────────────────────────────────────────────
 export default function Solicitudes() {
-  const [items, setItems]     = useState(MOCK);
-  const [filter, setFilter]   = useState("todas");
-  const [editComment, setEditComment] = useState(null); // id of item being edited
+  const [items, setItems]         = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [filter, setFilter]       = useState("todas");
+  const [editComment, setEditComment] = useState(null);
   const [commentDraft, setCommentDraft] = useState("");
   const { open, prevScreenLabel, user } = useContext(SolicitudContext);
 
   const isAdmin = ADMIN_ROLES.has(user?.role);
 
-  // Listen for solicitudes saved from the global drawer
-  useEffect(() => {
-    const handler = (e) => setItems(prev => [e.detail, ...prev]);
-    window.addEventListener("nueva-solicitud", handler);
-    return () => window.removeEventListener("nueva-solicitud", handler);
+  const fetchItems = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch("/api/solicitudes");
+      if (!res.ok) throw new Error();
+      setItems(await res.json());
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { fetchItems(); }, [fetchItems]);
+
+  // Refresh when a new solicitud is created from the drawer
+  useEffect(() => {
+    const handler = () => fetchItems();
+    window.addEventListener("solicitudes-refresh", handler);
+    return () => window.removeEventListener("solicitudes-refresh", handler);
+  }, [fetchItems]);
 
   const filtered = filter === "todas" ? items : items.filter(i => i.estado === filter);
 
-  const changeEstado = (id, nuevoEstado) => {
-    setItems(prev => prev.map(it => it.id === id ? { ...it, estado: nuevoEstado } : it));
+  const changeEstado = async (id, nuevoEstado) => {
+    try {
+      const res = await apiFetch(`/api/solicitudes/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ estado: nuevoEstado }),
+      });
+      if (!res.ok) throw new Error();
+      setItems(prev => prev.map(it => it.id === id ? { ...it, estado: nuevoEstado } : it));
+    } catch {
+      alert("Error al cambiar el estado.");
+    }
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (!confirm("¿Eliminar esta solicitud?")) return;
-    setItems(prev => prev.filter(it => it.id !== id));
+    try {
+      const res = await apiFetch(`/api/solicitudes/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setItems(prev => prev.filter(it => it.id !== id));
+    } catch {
+      alert("Error al eliminar la solicitud.");
+    }
   };
 
   const startEditComment = (item) => {
@@ -69,21 +92,36 @@ export default function Solicitudes() {
     setCommentDraft(item.comentario_admin || "");
   };
 
-  const saveComment = (id) => {
-    setItems(prev => prev.map(it => it.id === id ? { ...it, comentario_admin: commentDraft } : it));
-    setEditComment(null);
+  const saveComment = async (id) => {
+    try {
+      const res = await apiFetch(`/api/solicitudes/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comentario_admin: commentDraft }),
+      });
+      if (!res.ok) throw new Error();
+      setItems(prev => prev.map(it => it.id === id ? { ...it, comentario_admin: commentDraft } : it));
+      setEditComment(null);
+    } catch {
+      alert("Error al guardar el comentario.");
+    }
   };
 
   // ── Columns (dynamic based on admin role) ──────────────────────────────────
   const COLS = [
-    { key: "usuario",          label: "Usuario",      width: "12%" },
+    { key: "user_name",        label: "Usuario",      width: "12%" },
     { key: "pantalla",         label: "Pantalla",     width: "14%" },
-    { key: "fecha",            label: "Fecha",        width: "8%"  },
+    { key: "created_at",       label: "Fecha",        width: "8%"  },
     { key: "estado",           label: "Estado",       width: "11%" },
     { key: "detalle",          label: "Detalle" },
     { key: "comentario_admin", label: "Resp. admin",  width: "16%" },
     ...(isAdmin ? [{ key: "acciones", label: "", width: "4%" }] : []),
   ];
+
+  const fmtDate = (ts) => {
+    if (!ts) return "—";
+    return new Date(ts).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" });
+  };
 
   return (
     <>
@@ -113,7 +151,7 @@ export default function Solicitudes() {
           );
         })}
         <span style={{ marginLeft: "auto", fontSize: 12, color: COLORS.grayLight, fontFamily: B, alignSelf: "center" }}>
-          {filtered.length} {filtered.length === 1 ? "solicitud" : "solicitudes"}
+          {loading ? "Cargando…" : `${filtered.length} ${filtered.length === 1 ? "solicitud" : "solicitudes"}`}
         </span>
       </div>
 
@@ -128,22 +166,27 @@ export default function Solicitudes() {
             </tr>
           </thead>
           <tbody>
-            {filtered.length === 0 && (
+            {loading ? (
+              <tr>
+                <td colSpan={COLS.length} style={{ ...tdStyle, textAlign: "center", padding: 32, color: COLORS.grayLight }}>
+                  Cargando solicitudes…
+                </td>
+              </tr>
+            ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={COLS.length} style={{ ...tdStyle, textAlign: "center", padding: 32, color: COLORS.grayLight }}>
                   No hay solicitudes{filter !== "todas" ? " con este estado" : ""}.
                 </td>
               </tr>
-            )}
-            {filtered.map((item, i) => {
+            ) : filtered.map((item, i) => {
               const est = estadoMap[item.estado];
               return (
                 <tr key={item.id} style={{ borderBottom: `1px solid ${COLORS.border}`, background: i % 2 === 0 ? COLORS.white : "#FCFCFC" }}>
-                  <td style={tdStyle}>{item.usuario}</td>
+                  <td style={tdStyle}>{item.user_name}</td>
                   <td style={{ ...tdStyle, fontWeight: 600 }}>{item.pantalla}</td>
-                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{item.fecha}</td>
+                  <td style={{ ...tdStyle, whiteSpace: "nowrap" }}>{fmtDate(item.created_at)}</td>
 
-                  {/* Estado — select for IT, badge for others */}
+                  {/* Estado — select for admin, badge for others */}
                   <td style={tdStyle}>
                     {isAdmin ? (
                       <select
@@ -165,7 +208,7 @@ export default function Solicitudes() {
 
                   <td style={{ ...tdStyle, lineHeight: 1.5 }}>{item.detalle}</td>
 
-                  {/* Comentario admin — editable for IT, read-only for others */}
+                  {/* Comentario admin — editable for admin, read-only for others */}
                   <td style={{ ...tdStyle, fontSize: 12 }}>
                     {isAdmin && editComment === item.id ? (
                       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -191,7 +234,7 @@ export default function Solicitudes() {
                     )}
                   </td>
 
-                  {/* Delete — IT only */}
+                  {/* Delete — admin only */}
                   {isAdmin && (
                     <td style={{ ...tdStyle, textAlign: "center" }}>
                       <button

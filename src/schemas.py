@@ -315,6 +315,35 @@ class UIBrandSettingsRead(BaseModel):
         from_attributes = True
 
 
+# ── Solicitudes ───────────────────────────────────────────────────────────────
+class SolicitudCreate(BaseModel):
+    pantalla: str
+    detalle:  str
+
+
+class SolicitudUpdate(BaseModel):
+    estado:           Optional[str] = None
+    comentario_admin: Optional[str] = None
+
+
+class SolicitudRead(BaseModel):
+    id:               int
+    user_id:          int
+    user_email:       str
+    user_name:        str
+    pantalla:         str
+    detalle:          str
+    estado:           str
+    comentario_admin: Optional[str] = None
+    company_id:       Optional[str] = None
+    brand_id:         Optional[str] = None
+    created_at:       Optional[datetime] = None
+    updated_at:       Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
 # ── Regional Settings ─────────────────────────────────────────────────────────
 class RegionalSettingsUpdate(BaseModel):
     timezone: str   # IANA timezone, e.g. "Europe/Madrid"

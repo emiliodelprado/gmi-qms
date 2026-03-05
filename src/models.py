@@ -257,6 +257,27 @@ class CollaboratorEntityPosition(Base):
     position            = relationship("Position", lazy="select")
 
 
+class Solicitud(Base):
+    """User-submitted requests, bug reports, and improvement suggestions."""
+    __tablename__ = "solicitudes"
+
+    id               = Column(Integer, primary_key=True, index=True)
+    user_id          = Column(Integer, ForeignKey("user_access.id"), nullable=False)
+    user_email       = Column(String(255), nullable=False)
+    user_name        = Column(String(255), nullable=False)
+    pantalla         = Column(String(200), nullable=False)
+    detalle          = Column(Text, nullable=False)
+    estado           = Column(String(20), nullable=False, server_default="enviada")
+    comentario_admin = Column(Text, nullable=True)
+    company_id       = Column(String(10), nullable=True)
+    brand_id         = Column(String(50), nullable=True)
+    activo           = Column(Integer, default=1)
+    created_at       = Column(DateTime, default=datetime.utcnow)
+    updated_at       = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    user = relationship("UserAccess", lazy="select")
+
+
 class RegionalSettings(Base):
     """App-wide regional settings (single-row table)."""
     __tablename__ = "regional_settings"
